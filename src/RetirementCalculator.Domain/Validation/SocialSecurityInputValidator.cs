@@ -20,7 +20,8 @@ public static class SocialSecurityInputValidator
 
         var errors = new List<ValidationError>();
 
-        if (input.BirthYear is not int birthYear || birthYear < MinimumBirthYear || birthYear > currentYear)
+        var birthYearValid = input.BirthYear is int birthYear && birthYear >= MinimumBirthYear && birthYear <= currentYear;
+        if (!birthYearValid)
         {
             errors.Add(new ValidationError(nameof(input.BirthYear),
                 $"Enter a birth year between {MinimumBirthYear} and {currentYear}."));
@@ -33,45 +34,57 @@ public static class SocialSecurityInputValidator
         }
 
         var claimAgeMonthsValid = IsValidMonthsComponent(input.ClaimAgeMonths);
-        if (input.ClaimAgeYears is not int claimAgeYears || claimAgeYears < 0 || !claimAgeMonthsValid)
+        var claimAgeStructurallyValid = input.ClaimAgeYears is int claimAgeYears && claimAgeYears >= 0 && claimAgeMonthsValid;
+        if (!claimAgeStructurallyValid)
         {
             errors.Add(new ValidationError(nameof(input.ClaimAgeYears),
                 "Enter a claim age with whole years and 0-11 months."));
         }
 
         var planningAgeMonthsValid = IsValidMonthsComponent(input.PlanningAgeMonths);
-        if (input.PlanningAgeYears is not int planningAgeYears || planningAgeYears < 0 || !planningAgeMonthsValid)
+        var planningAgeStructurallyValid = input.PlanningAgeYears is int planningAgeYears && planningAgeYears >= 0 && planningAgeMonthsValid;
+        if (!planningAgeStructurallyValid)
         {
             errors.Add(new ValidationError(nameof(input.PlanningAgeYears),
                 "Enter a planning age with whole years and 0-11 months."));
         }
 
-        // Range checks that depend on a valid birth year require FRA to be derivable first.
-        if (errors.Count == 0 &&
-            input.BirthYear is int validBirthYear &&
-            input.ClaimAgeYears is int validClaimYears &&
-            input.ClaimAgeMonths is int validClaimMonths &&
-            input.PlanningAgeYears is int validPlanningYears &&
-            input.PlanningAgeMonths is int validPlanningMonths)
-        {
-            var fullRetirementAge = Services.FullRetirementAgeCalculator.Calculate(validBirthYear);
-            var claimAge = new Age(validClaimYears, validClaimMonths);
-            var planningAge = new Age(validPlanningYears, validPlanningMonths);
-            var minimumClaimAge = new Age(MinimumClaimAgeYears, 0);
+        // Each independent, structurally-valid field is range-checked on its own so that an
+        // error on one field never suppresses an otherwise-detectable error on another.
+        Age? claimAge = claimAgeStructurallyValid ? new Age(input.ClaimAgeYears!.Value, input.ClaimAgeMonths!.Value) : null;
+        Age? planningAge = planningAgeStructurallyValid ? new Age(input.PlanningAgeYears!.Value, input.PlanningAgeMonths!.Value) : null;
+        Age? fullRetirementAge = birthYearValid ? Services.FullRetirementAgeCalculator.Calculate(input.BirthYear!.Value) : null;
 
-            if (claimAge.TotalMonths < minimumClaimAge.TotalMonths)
+        // Claim age must be at least 62 whenever the claim age components are structurally valid,
+        // regardless of whether birth year, planning age, or benefit are also valid.
+        if (claimAge is Age validClaimAge)
+        {
+            var minimumClaimAge = new Age(MinimumClaimAgeYears, 0);
+            if (validClaimAge.TotalMonths < minimumClaimAge.TotalMonths)
             {
                 errors.Add(new ValidationError(nameof(input.ClaimAgeYears),
                     $"Claim age must be at least {MinimumClaimAgeYears} years."));
             }
-            else if (claimAge.TotalMonths > fullRetirementAge.TotalMonths)
+            // The FRA upper-bound check requires a derivable FRA (a valid birth year) in addition
+            // to a structurally valid claim age. It is skipped (not duplicated) when the minimum
+            // age check above already reported an error for this field.
+            else if (fullRetirementAge is Age fraForClaimCheck && validClaimAge.TotalMonths > fraForClaimCheck.TotalMonths)
             {
                 errors.Add(new ValidationError(nameof(input.ClaimAgeYears),
-                    $"Claim age cannot be after full retirement age ({fullRetirementAge})."));
+                    $"Claim age cannot be after full retirement age ({fraForClaimCheck})."));
             }
+        }
 
-            var latestRequiredMonths = Math.Max(claimAge.TotalMonths, fullRetirementAge.TotalMonths);
-            if (planningAge.TotalMonths <= latestRequiredMonths)
+        // The planning-later check is evaluated whenever the claim age and planning age are both
+        // structurally valid, using FRA when it is also derivable (a valid birth year). This is
+        // independent of any range errors already recorded against the claim age field.
+        if (claimAge is Age claimAgeForPlanning && planningAge is Age validPlanningAge)
+        {
+            var latestRequiredMonths = fullRetirementAge is Age fraForPlanningCheck
+                ? Math.Max(claimAgeForPlanning.TotalMonths, fraForPlanningCheck.TotalMonths)
+                : claimAgeForPlanning.TotalMonths;
+
+            if (validPlanningAge.TotalMonths <= latestRequiredMonths)
             {
                 errors.Add(new ValidationError(nameof(input.PlanningAgeYears),
                     "Planning age must be later than both the claim age and full retirement age."));

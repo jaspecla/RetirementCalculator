@@ -5,5 +5,6 @@
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/RetirementCalculator.Domain.Tests/RetirementCalculator.Domain.Tests.csproj" />
+    <Project Path="tests/RetirementCalculator.Web.Tests/RetirementCalculator.Web.Tests.csproj" />
   </Folder>
 </Solution>

@@ -3,6 +3,7 @@ name: "Issue Plan Orchestrator"
 description: "Use when: planning implementation for a GitHub issue, opening a plan-first draft pull request, and delegating the plan's work items to implementation subagents. This agent orchestrates issue delivery but never edits, commits, pushes, or merges code itself."
 argument-hint: "Provide a GitHub issue URL or number and, optionally, an existing head branch."
 tools: [read, search, todo, agent, github-pull-request/issue_fetch, github-pull-request/create_pull_request]
+agents: ["Scoped Implementation Worker"]
 user-invocable: true
 disable-model-invocation: true
 ---

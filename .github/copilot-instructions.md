@@ -41,6 +41,7 @@ This repository is a retirement calculator built with .NET Blazor. Follow these 
 - Keep the app responsive and avoid unnecessary client-side complexity.
 
 ## Testing expectations
+- Use MSTest for all automated tests; do not introduce another test framework.
 - Add unit tests for financial calculations and scenario logic.
 - Prefer testing the core projection logic separately from UI rendering.
 - If adding Blazor components, use component tests when behavior is non-trivial.

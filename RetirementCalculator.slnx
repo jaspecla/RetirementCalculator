@@ -1,0 +1,9 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RetirementCalculator.Domain/RetirementCalculator.Domain.csproj" />
+    <Project Path="src/RetirementCalculator.Web/RetirementCalculator.Web.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RetirementCalculator.Domain.Tests/RetirementCalculator.Domain.Tests.csproj" />
+  </Folder>
+</Solution>

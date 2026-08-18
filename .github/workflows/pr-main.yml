@@ -79,14 +79,3 @@ jobs:
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
-
-      - name: Upload CodeQL results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: codeql-results
-          path: |
-            **/*.sarif
-            **/results/**/*.sarif
-          if-no-files-found: warn
-          retention-days: 7

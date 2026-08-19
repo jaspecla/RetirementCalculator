@@ -1,0 +1,163 @@
+@page "/"
+@using RetirementCalculator.Domain.Models
+
+<PageTitle>Social Security Claiming Calculator</PageTitle>
+
+<h1>Social Security Claiming Calculator</h1>
+
+<p class="disclaimer" role="note">
+    This tool gives a rough <strong>estimate only</strong> based on simplified, constant-dollar
+    assumptions. It is <strong>not financial, tax, or legal advice</strong>. Always
+    <strong>verify your actual benefit estimate with the Social Security Administration</strong>
+    before making a claiming decision.
+</p>
+
+<form class="ss-form" @onsubmit="Calculate">
+    <div class="ss-form-grid">
+        <div class="ss-field">
+            <label for="birthYear">Birth year</label>
+            <input id="birthYear" type="number" class="form-control" inputmode="numeric"
+                   aria-describedby="birthYear-error"
+                   aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.BirthYear)) is not null)"
+                   @bind="_input.BirthYear" @bind:event="oninput" />
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.BirthYear)) is { } birthYearError)
+            {
+                <div id="birthYear-error" class="field-error" role="alert">@birthYearError</div>
+            }
+        </div>
+
+        <div class="ss-field">
+            <label for="fraBenefit">Monthly benefit at full retirement age ($)</label>
+            <input id="fraBenefit" type="number" step="0.01" min="0" class="form-control" inputmode="decimal"
+                   aria-describedby="fraBenefit-error fraBenefit-hint"
+                   aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.MonthlyBenefitAtFullRetirementAge)) is not null)"
+                   @bind="_input.MonthlyBenefitAtFullRetirementAge" @bind:event="oninput" />
+            <a id="fraBenefit-hint" class="ssa-link" href="https://www.ssa.gov/myaccount/"
+               target="_blank" rel="noopener noreferrer">
+                Find your estimate at my Social Security account
+            </a>
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.MonthlyBenefitAtFullRetirementAge)) is { } fraBenefitError)
+            {
+                <div id="fraBenefit-error" class="field-error" role="alert">@fraBenefitError</div>
+            }
+        </div>
+
+        <fieldset class="ss-field">
+            <legend>Claim age (62 through your full retirement age)</legend>
+            <div class="ss-age-inputs">
+                <label for="claimAgeYears">Years
+                    <input id="claimAgeYears" type="number" min="0" class="form-control" inputmode="numeric"
+                           aria-describedby="claimAge-error"
+                           aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.ClaimAgeYears)) is not null)"
+                           @bind="_input.ClaimAgeYears" @bind:event="oninput" />
+                </label>
+                <label for="claimAgeMonths">Months
+                    <input id="claimAgeMonths" type="number" min="0" max="11" class="form-control" inputmode="numeric"
+                           aria-describedby="claimAge-error"
+                           @bind="_input.ClaimAgeMonths" @bind:event="oninput" />
+                </label>
+            </div>
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.ClaimAgeYears)) is { } claimAgeError)
+            {
+                <div id="claimAge-error" class="field-error" role="alert">@claimAgeError</div>
+            }
+        </fieldset>
+
+        <fieldset class="ss-field">
+            <legend>Planning age (through what age to project totals)</legend>
+            <div class="ss-age-inputs">
+                <label for="planningAgeYears">Years
+                    <input id="planningAgeYears" type="number" min="0" class="form-control" inputmode="numeric"
+                           aria-describedby="planningAge-error"
+                           aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.PlanningAgeYears)) is not null)"
+                           @bind="_input.PlanningAgeYears" @bind:event="oninput" />
+                </label>
+                <label for="planningAgeMonths">Months
+                    <input id="planningAgeMonths" type="number" min="0" max="11" class="form-control" inputmode="numeric"
+                           aria-describedby="planningAge-error"
+                           @bind="_input.PlanningAgeMonths" @bind:event="oninput" />
+                </label>
+            </div>
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.PlanningAgeYears)) is { } planningAgeError)
+            {
+                <div id="planningAge-error" class="field-error" role="alert">@planningAgeError</div>
+            }
+        </fieldset>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Calculate</button>
+</form>
+
+@if (_result is { } result)
+{
+    <section class="ss-results" aria-live="polite">
+        <h2>Results</h2>
+        <p>Your full retirement age (FRA) is <strong>@result.FullRetirementAge</strong>.</p>
+
+        @if (result.IsChosenAgeSameAsFullRetirementAge)
+        {
+            <p>
+                Your chosen claim age is the same as your full retirement age, so both scenarios below
+                are identical and there is no meaningful break-even age.
+            </p>
+        }
+
+        <div class="ss-table-wrapper">
+            <table class="ss-comparison-table">
+                <caption class="visually-hidden">Side-by-side comparison of claiming at your chosen age versus at full retirement age</caption>
+                <thead>
+                    <tr>
+                        <th scope="col">&nbsp;</th>
+                        <th scope="col">Claim at chosen age</th>
+                        <th scope="col">Claim at full retirement age</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <th scope="row">Age at claim</th>
+                        <td>@result.ChosenAgeScenario.ClaimAge</td>
+                        <td>@result.FullRetirementAgeScenario.ClaimAge</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Monthly benefit</th>
+                        <td>@FormatCurrency(result.ChosenAgeScenario.MonthlyBenefit)</td>
+                        <td>@FormatCurrency(result.FullRetirementAgeScenario.MonthlyBenefit)</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Annual benefit</th>
+                        <td>@FormatCurrency(result.ChosenAgeScenario.AnnualBenefit)</td>
+                        <td>@FormatCurrency(result.FullRetirementAgeScenario.AnnualBenefit)</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Payment months through planning age</th>
+                        <td>@result.ChosenAgeScenario.PaymentMonthsThroughPlanningAge</td>
+                        <td>@result.FullRetirementAgeScenario.PaymentMonthsThroughPlanningAge</td>
+                    </tr>
+                    <tr>
+                        <th scope="row">Cumulative total through planning age</th>
+                        <td>@FormatCurrency(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge)</td>
+                        <td>@FormatCurrency(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge)</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        <ul class="ss-summary-list">
+            <li>Waiting increase: @FormatCurrency(result.WaitingIncreaseAmount) per month
+                (@FormatPercent(result.WaitingIncreasePercent))</li>
+            <li>
+                Cumulative difference through planning age:
+                @FormatCurrency(result.CumulativeDifferenceAtPlanningAge)
+                (@(result.CumulativeDifferenceAtPlanningAge >= 0 ? "favors waiting for full retirement age" : "favors claiming at your chosen age"))
+            </li>
+            @if (result.BreakEvenAge is { } breakEvenAge)
+            {
+                <li>First break-even age (waiting catches up in total dollars): @breakEvenAge</li>
+            }
+            else if (!result.IsChosenAgeSameAsFullRetirementAge)
+            {
+                <li>No break-even age was found within the calculator's search horizon.</li>
+            }
+        </ul>
+    </section>
+}

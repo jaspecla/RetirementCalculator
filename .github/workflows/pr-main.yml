@@ -4,6 +4,9 @@ on:
   pull_request:
     branches:
       - main
+  push:
+    branches:
+      - main
 
 permissions:
   contents: read
@@ -11,8 +14,8 @@ permissions:
   security-events: write
 
 jobs:
-  mstest:
-    name: MSTest
+  build-and-test:
+    name: Build and test
     runs-on: ubuntu-latest
 
     steps:
@@ -22,21 +25,29 @@ jobs:
       - name: Setup .NET
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: 8.0.x
+          dotnet-version: |
+            10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
 
       - name: Restore dependencies
-        run: dotnet restore
+        run: dotnet restore RetirementCalculator.slnx
 
-      - name: Run MSTest suite
+      - name: Build solution
+        run: dotnet build RetirementCalculator.slnx --configuration Release --no-restore
+
+      - name: Run test suite
         run: |
           mkdir -p TestResults
-          dotnet test --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+          dotnet test RetirementCalculator.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
 
       - name: Upload test results
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: mstest-results
+          name: test-results
           path: |
             TestResults/**
             **/*.trx
@@ -46,10 +57,17 @@ jobs:
   codeql:
     name: CodeQL Scan
     runs-on: ubuntu-latest
+    needs: build-and-test
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            10.0.x
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@v3
@@ -57,18 +75,7 @@ jobs:
           languages: csharp
 
       - name: Build for analysis
-        uses: github/codeql-action/autobuild@v3
+        run: dotnet build RetirementCalculator.slnx --configuration Release
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@v3
-
-      - name: Upload CodeQL results
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: codeql-results
-          path: |
-            **/*.sarif
-            **/results/**/*.sarif
-          if-no-files-found: warn
-          retention-days: 7

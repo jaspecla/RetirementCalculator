@@ -30,8 +30,7 @@ public sealed class HomePageTests
     {
         await _page.GotoAsync(BrowserTestHost.BaseUrl);
 
-        await _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" }).ClickAsync();
-        await ThrowIfBlazorFailedAsync();
+        await WaitForInteractiveFormAsync();
 
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).Not.ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByText(new Regex(@"Enter a birth year between 1900 and \d{4}\."))).ToBeVisibleAsync();
@@ -45,10 +44,8 @@ public sealed class HomePageTests
     {
         await _page.GotoAsync(BrowserTestHost.BaseUrl);
 
+        await WaitForInteractiveFormAsync();
         var calculateButton = _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" });
-        await calculateButton.ClickAsync();
-        await Assertions.Expect(_page.GetByRole(AriaRole.Alert)).ToHaveCountAsync(4);
-
         await _page.Locator("#birthYear").FillAsync("1965");
         await _page.Locator("#fraBenefit").FillAsync("2000");
         await _page.Locator("#claimAgeYears").FillAsync("64");
@@ -61,6 +58,32 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at chosen age");
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at full retirement age");
+    }
+
+    private async Task WaitForInteractiveFormAsync()
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        var alerts = _page.GetByRole(AriaRole.Alert);
+
+        while (DateTime.UtcNow < deadline)
+        {
+            await _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" }).ClickAsync();
+            await ThrowIfBlazorFailedAsync();
+
+            try
+            {
+                await alerts.First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 1_000 });
+                if (await alerts.CountAsync() == 4)
+                {
+                    return;
+                }
+            }
+            catch (TimeoutException)
+            {
+            }
+        }
+
+        Assert.Fail($"The calculator did not become interactive within 10 seconds.{Environment.NewLine}{BrowserTestHost.GetHostOutput()}");
     }
 
     private async Task ThrowIfBlazorFailedAsync()

@@ -120,4 +120,72 @@ public sealed class SocialSecurityBenefitCalculatorTests
         Assert.IsTrue(result.WaitingIncreaseAmount > 0m);
         Assert.IsTrue(result.WaitingIncreasePercent > 0m);
     }
+
+    [TestMethod]
+    public void Calculate_CumulativeIncomeByYear_StartsAtYearOneWithFirstYearTotal()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 90);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        var firstPoint = result.ChosenAgeScenario.CumulativeIncomeByYear[0];
+        Assert.AreEqual(1, firstPoint.Year);
+        Assert.AreEqual(result.ChosenAgeScenario.MonthlyBenefit * 12m, firstPoint.CumulativeAmount);
+    }
+
+    [TestMethod]
+    public void Calculate_CumulativeIncomeByYear_IncreasesMonotonicallyByAnnualBenefitEachFullYear()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 90);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        var series = result.ChosenAgeScenario.CumulativeIncomeByYear;
+
+        Assert.IsTrue(series.Count > 1);
+
+        for (var i = 1; i < series.Count - 1; i++)
+        {
+            Assert.IsTrue(series[i].CumulativeAmount > series[i - 1].CumulativeAmount);
+            Assert.AreEqual(
+                result.ChosenAgeScenario.MonthlyBenefit * 12m,
+                series[i].CumulativeAmount - series[i - 1].CumulativeAmount);
+        }
+    }
+
+    [TestMethod]
+    public void Calculate_CumulativeIncomeByYear_FinalEntryMatchesCumulativeTotalThroughPlanningAge_ForPartialYearSpan()
+    {
+        // Claim at 63y6m, planning age 90y3m -> payment months from claim through planning age
+        // is not an exact multiple of 12, exercising the partial final-year data point.
+        var input = CreateInput(birthYear: 1962, fraBenefit: 2200m, claimYears: 63, claimMonths: 6, planningYears: 90, planningMonths: 3);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        var chosenSeries = result.ChosenAgeScenario.CumulativeIncomeByYear;
+        Assert.AreEqual(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge, chosenSeries[^1].CumulativeAmount);
+
+        var fraSeries = result.FullRetirementAgeScenario.CumulativeIncomeByYear;
+        Assert.AreEqual(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge, fraSeries[^1].CumulativeAmount);
+    }
+
+    [TestMethod]
+    public void Calculate_CumulativeIncomeByYear_PlanningAgeEqualsClaimAge_IsEmpty()
+    {
+        var input = CreateInput(birthYear: 1960, fraBenefit: 2500m, claimYears: 67, claimMonths: 0, planningYears: 67, planningMonths: 0);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        Assert.AreEqual(0, result.ChosenAgeScenario.CumulativeIncomeByYear.Count);
+        Assert.AreEqual(0, result.FullRetirementAgeScenario.CumulativeIncomeByYear.Count);
+    }
+
+    [TestMethod]
+    public void Calculate_CumulativeIncomeByYear_MultiDecadeSpan_ProducesManyDataPoints()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 95);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        Assert.IsTrue(result.ChosenAgeScenario.CumulativeIncomeByYear.Count > 20);
+    }
 }

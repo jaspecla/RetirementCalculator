@@ -22,6 +22,7 @@ public sealed class HomeComponentTests
         cut.Find("form").Submit();
 
         Assert.IsFalse(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.AreEqual(0, cut.FindAll("[data-testid='cumulative-income-chart']").Count);
         var errorMessages = cut.FindAll(".field-error");
         Assert.IsGreaterThan(0, errorMessages.Count);
         Assert.IsTrue(cut.Markup.Contains("Enter a birth year", StringComparison.Ordinal));
@@ -45,6 +46,7 @@ public sealed class HomeComponentTests
         cut.Find("form").Submit();
 
         Assert.IsFalse(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.AreEqual(0, cut.FindAll("[data-testid='cumulative-income-chart']").Count);
         Assert.IsTrue(cut.Markup.Contains("Claim age must be at least 62 years.", StringComparison.Ordinal));
     }
 
@@ -58,7 +60,10 @@ public sealed class HomeComponentTests
         cut.Find("form").Submit();
 
         Assert.IsTrue(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsNotNull(cut.Find("[data-testid='cumulative-income-chart']"));
         Assert.AreEqual(0, cut.FindAll(".field-error").Count);
+        Assert.IsTrue(cut.FindAll(".bar-chosen").Count > 0);
+        Assert.AreEqual(cut.FindAll(".bar-chosen").Count, cut.FindAll(".bar-fra").Count);
     }
 
     private static void SetValidInputs(IRenderedComponent<Home> cut)

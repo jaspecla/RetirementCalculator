@@ -7,6 +7,8 @@ public sealed class ScenarioResult
 {
     public required Age ClaimAge { get; init; }
 
+    public IReadOnlyList<YearlyCumulativeIncome> CumulativeIncomeByYear { get; init; } = [];
+
     /// <summary>Constant nominal monthly benefit amount for this scenario.</summary>
     public required decimal MonthlyBenefit { get; init; }
 

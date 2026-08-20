@@ -41,19 +41,24 @@ public static class SocialSecurityBenefitCalculator
         var chosenAgeMonthlyBenefit = Math.Round(fraBenefit * (1m - reductionFraction), 2, MidpointRounding.AwayFromZero);
 
         var isChosenAgeSameAsFra = claimAge.TotalMonths == fullRetirementAge.TotalMonths;
+        var chosenPaymentMonths = PaymentMonths(claimAge, planningAge);
 
         var chosenAgeScenario = new ScenarioResult
         {
             ClaimAge = claimAge,
             MonthlyBenefit = chosenAgeMonthlyBenefit,
-            PaymentMonthsThroughPlanningAge = PaymentMonths(claimAge, planningAge),
+            PaymentMonthsThroughPlanningAge = chosenPaymentMonths,
+            CumulativeIncomeByYear = BuildCumulativeIncomeByYear(claimAge, chosenAgeMonthlyBenefit, chosenPaymentMonths),
         };
+
+        var fraPaymentMonths = PaymentMonths(fullRetirementAge, planningAge);
 
         var fraScenario = new ScenarioResult
         {
             ClaimAge = fullRetirementAge,
             MonthlyBenefit = fraBenefit,
-            PaymentMonthsThroughPlanningAge = PaymentMonths(fullRetirementAge, planningAge),
+            PaymentMonthsThroughPlanningAge = fraPaymentMonths,
+            CumulativeIncomeByYear = BuildCumulativeIncomeByYear(fullRetirementAge, fraBenefit, fraPaymentMonths),
         };
 
         Age? breakEvenAge = isChosenAgeSameAsFra
@@ -72,6 +77,36 @@ public static class SocialSecurityBenefitCalculator
 
     private static int PaymentMonths(Age claimAge, Age planningAge) =>
         Math.Max(planningAge.TotalMonths - claimAge.TotalMonths, 0);
+
+    /// <summary>
+    /// Builds the year-by-year cumulative income series for a scenario, with one data point
+    /// per whole year elapsed since <paramref name="claimAge"/> plus a final data point at
+    /// <paramref name="paymentMonthsThroughPlanningAge"/> so the series' last entry always
+    /// exactly matches the scenario's total cumulative amount through the planning age.
+    /// Returns an empty list when there are no payment months at all.
+    /// </summary>
+    private static IReadOnlyList<YearlyCumulativeIncome> BuildCumulativeIncomeByYear(
+        Age claimAge, decimal monthlyBenefit, int paymentMonthsThroughPlanningAge)
+    {
+        if (paymentMonthsThroughPlanningAge <= 0)
+        {
+            return [];
+        }
+
+        var series = new List<YearlyCumulativeIncome>();
+        var year = 1;
+
+        for (var monthsElapsed = 12; monthsElapsed < paymentMonthsThroughPlanningAge; monthsElapsed += 12, year++)
+        {
+            series.Add(new YearlyCumulativeIncome(year, monthlyBenefit * monthsElapsed));
+        }
+
+        // Final data point always reflects the exact payment months through the planning age,
+        // even if that isn't an exact multiple of 12 months from the claim age.
+        series.Add(new YearlyCumulativeIncome(year, monthlyBenefit * paymentMonthsThroughPlanningAge));
+
+        return series;
+    }
 
     private static decimal CumulativeAt(int atTotalMonths, Age claimAge, decimal monthlyBenefit) =>
         monthlyBenefit * Math.Max(atTotalMonths - claimAge.TotalMonths, 0);

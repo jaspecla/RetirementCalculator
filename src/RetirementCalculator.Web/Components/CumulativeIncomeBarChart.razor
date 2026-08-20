@@ -1,0 +1,80 @@
+@if (!HasChartData)
+{
+    <div data-testid="cumulative-income-chart" class="cumulative-chart cumulative-chart-empty">
+        <p>Cumulative income chart data is unavailable for the selected comparison.</p>
+    </div>
+}
+else
+{
+    <figure data-testid="cumulative-income-chart" class="cumulative-chart">
+        <figcaption>Cumulative Social Security income by year</figcaption>
+        <div class="cumulative-chart-legend" aria-hidden="true">
+            <span class="legend-item">
+                <span class="legend-swatch bar-chosen"></span>
+                <span>Claim at chosen age</span>
+            </span>
+            <span class="legend-item">
+                <span class="legend-swatch bar-fra"></span>
+                <span>Claim at full retirement age</span>
+            </span>
+        </div>
+        <svg viewBox="0 0 720 320"
+             width="100%"
+             height="320"
+             role="img"
+             aria-label="@ChartAriaLabel"
+             preserveAspectRatio="xMidYMid meet">
+            <line class="axis-line" x1="72" y1="24" x2="72" y2="268"></line>
+            <line class="axis-line" x1="72" y1="268" x2="696" y2="268"></line>
+
+            @foreach (var tick in GetYAxisTicks())
+            {
+                <line class="grid-line" x1="72" y1="@GetTickY(tick)" x2="696" y2="@GetTickY(tick)"></line>
+                <svg:text class="axis-label y-axis-label" x="64" y="@(GetTickY(tick) + 4)" text-anchor="end">@FormatCurrency(tick)</svg:text>
+            }
+
+            @for (var index = 0; index < YearData.Count; index++)
+            {
+                var point = YearData[index];
+                <g class="bar-group">
+                    <rect class="bar-chosen"
+                          x="@GetChosenX(index)"
+                          y="@GetBarY(point.ChosenAmount)"
+                          width="@BarWidth"
+                          height="@GetBarHeight(point.ChosenAmount)">
+                        <title>Year @point.Year chosen age cumulative income: @FormatCurrency(point.ChosenAmount)</title>
+                    </rect>
+                    <rect class="bar-fra"
+                          x="@GetFraX(index)"
+                          y="@GetBarY(point.FullRetirementAgeAmount)"
+                          width="@BarWidth"
+                          height="@GetBarHeight(point.FullRetirementAgeAmount)">
+                        <title>Year @point.Year full retirement age cumulative income: @FormatCurrency(point.FullRetirementAgeAmount)</title>
+                    </rect>
+                    <svg:text class="axis-label x-axis-label" x="@GetLabelX(index)" y="290" text-anchor="middle">@point.Year</svg:text>
+                </g>
+            }
+        </svg>
+
+        <table class="visually-hidden">
+            <caption class="visually-hidden">Cumulative Social Security income by year for the chosen-age and full-retirement-age scenarios</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Year</th>
+                    <th scope="col">Claim at chosen age</th>
+                    <th scope="col">Claim at full retirement age</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var point in YearData)
+                {
+                    <tr>
+                        <th scope="row">@point.Year</th>
+                        <td>@FormatCurrency(point.ChosenAmount)</td>
+                        <td>@FormatCurrency(point.FullRetirementAgeAmount)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </figure>
+}

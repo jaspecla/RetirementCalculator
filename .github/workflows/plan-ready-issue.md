@@ -50,7 +50,7 @@ safe-outputs:
         pull-requests: write
         issues: write
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_TOKEN: ${{ secrets.GH_AW_GITHUB_TOKEN || secrets.GITHUB_TOKEN }}
         GH_REPO: ${{ github.repository }}
       steps:
         - name: Create blank plan pull request

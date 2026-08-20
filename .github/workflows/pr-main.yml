@@ -41,7 +41,16 @@ jobs:
       - name: Run test suite
         run: |
           mkdir -p TestResults
-          dotnet test RetirementCalculator.slnx --configuration Release --no-build --logger "trx;LogFileName=test-results.trx" --results-directory TestResults
+          dotnet test tests/RetirementCalculator.Domain.Tests/RetirementCalculator.Domain.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=domain-test-results.trx" --results-directory TestResults
+          dotnet test tests/RetirementCalculator.Web.Tests/RetirementCalculator.Web.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=web-test-results.trx" --results-directory TestResults
+
+      - name: Install Playwright browsers
+        run: pwsh tests/RetirementCalculator.Browser.Tests/bin/Release/net10.0/playwright.ps1 install --with-deps chromium
+
+      - name: Run Playwright tests
+        run: |
+          mkdir -p PlaywrightResults
+          dotnet test tests/RetirementCalculator.Browser.Tests/RetirementCalculator.Browser.Tests.csproj --configuration Release --no-build --logger "trx;LogFileName=playwright-test-results.trx" --results-directory PlaywrightResults
 
       - name: Upload test results
         if: always()
@@ -51,6 +60,15 @@ jobs:
           path: |
             TestResults/**
             **/*.trx
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Upload Playwright results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results
+          path: PlaywrightResults/**
           if-no-files-found: warn
           retention-days: 7
 

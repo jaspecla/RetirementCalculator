@@ -1,0 +1,100 @@
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+concurrency:
+  group: azure-production
+  cancel-in-progress: false
+
+env:
+  AZURE_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+  AZURE_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+  AZURE_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+  AZURE_RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+  AZURE_LOCATION: ${{ vars.AZURE_LOCATION }}
+  AZURE_APP_NAME: ${{ vars.AZURE_APP_NAME }}
+  WEB_PROJECT: src/RetirementCalculator.Web/RetirementCalculator.Web.csproj
+
+jobs:
+  deploy:
+    name: Provision and deploy
+    runs-on: ubuntu-latest
+    environment: test
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Validate deployment configuration
+        shell: bash
+        run: |
+          : "${AZURE_CLIENT_ID:?Set the AZURE_CLIENT_ID GitHub secret}"
+          : "${AZURE_TENANT_ID:?Set the AZURE_TENANT_ID GitHub secret}"
+          : "${AZURE_SUBSCRIPTION_ID:?Set the AZURE_SUBSCRIPTION_ID GitHub secret}"
+          : "${AZURE_RESOURCE_GROUP:?Set the AZURE_RESOURCE_GROUP GitHub variable}"
+          : "${AZURE_LOCATION:?Set the AZURE_LOCATION GitHub variable}"
+          : "${AZURE_APP_NAME:?Set the globally unique AZURE_APP_NAME GitHub variable}"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 10.0.x
+          cache: true
+          cache-dependency-path: |
+            **/*.csproj
+            **/packages.lock.json
+
+      - name: Restore dependencies
+        run: dotnet restore RetirementCalculator.slnx
+
+      - name: Build solution
+        run: dotnet build RetirementCalculator.slnx --configuration Release --no-restore
+
+      - name: Run unit and component tests
+        run: |
+          dotnet test tests/RetirementCalculator.Domain.Tests/RetirementCalculator.Domain.Tests.csproj --configuration Release --no-build
+          dotnet test tests/RetirementCalculator.Web.Tests/RetirementCalculator.Web.Tests.csproj --configuration Release --no-build
+
+      - name: Publish web application
+        run: dotnet publish "$WEB_PROJECT" --configuration Release --no-restore --output publish
+
+      - name: Sign in to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ env.AZURE_CLIENT_ID }}
+          tenant-id: ${{ env.AZURE_TENANT_ID }}
+          subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Create resource group
+        run: az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
+
+      - name: Deploy Azure infrastructure
+        id: infrastructure
+        shell: bash
+        run: |
+          app_url=$(az deployment group create \
+            --name "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
+            --resource-group "$AZURE_RESOURCE_GROUP" \
+            --template-file infra/main.bicep \
+            --parameters appName="$AZURE_APP_NAME" location="$AZURE_LOCATION" \
+            --query properties.outputs.appUrl.value \
+            --output tsv)
+          echo "app-url=$app_url" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy application
+        uses: azure/webapps-deploy@v3
+        with:
+          app-name: ${{ env.AZURE_APP_NAME }}
+          package: publish
+
+      - name: Add deployment summary
+        shell: bash
+        run: echo "Deployed to ${{ steps.infrastructure.outputs.app-url }}" >> "$GITHUB_STEP_SUMMARY"

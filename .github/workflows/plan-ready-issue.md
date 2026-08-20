@@ -3,7 +3,13 @@ description: Create an implementation plan for ready issues and publish it as th
 on:
   issues:
     types: [labeled]
-if: ${{ github.event.label.name == 'ready_for_implementation' }}
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Issue number to plan.
+        required: true
+        type: string
+if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'ready_for_implementation' }}
 permissions:
   contents: read
   issues: read
@@ -91,7 +97,7 @@ safe-outputs:
 
 # Plan Ready Issue
 
-Create an implementation plan for issue #${{ github.event.issue.number }} in ${{ github.repository }}.
+Create an implementation plan for issue #${{ github.event.issue.number || github.event.inputs.issue_number }} in ${{ github.repository }}.
 
 Use the Issue Plan Planner's complete workflow and boundaries. Treat the issue as the source of truth and inspect the repository only enough to produce concrete, independently delegable work items.
 
@@ -101,9 +107,9 @@ ${{ steps.sanitized.outputs.text }}
 
 When the plan is complete, call `create_plan_pull_request` exactly once with:
 
-- `issue_number`: `${{ github.event.issue.number }}`
+- `issue_number`: `${{ github.event.issue.number || github.event.inputs.issue_number }}`
 - `base_branch`: `${{ github.event.repository.default_branch }}`
-- `title`: a concise title beginning with `Plan #${{ github.event.issue.number }}:`
+- `title`: a concise title beginning with `Plan #${{ github.event.issue.number || github.event.inputs.issue_number }}:`
 - `plan`: the complete Markdown plan in the planner's required comment format
 
 The safe output creates an empty commit, opens a draft pull request with an empty body, and posts `plan` as the first pull request comment. Do not request implementation, add labels, or produce another GitHub write.

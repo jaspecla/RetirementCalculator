@@ -9,6 +9,7 @@ on:
         description: Issue number to plan.
         required: true
         type: string
+  bots: [github-actions]
 if: ${{ github.event_name == 'workflow_dispatch' || github.event.label.name == 'ready_for_implementation' }}
 permissions:
   contents: read

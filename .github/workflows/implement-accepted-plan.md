@@ -9,10 +9,10 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
+model: gpt-5.6-sol
 engine:
   id: copilot
   agent: issue-implementation-orchestrator
-  model: gpt-5.6-sol
 models:
   default-ai-credits-pricing:
     input: 5.0

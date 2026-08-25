@@ -12,6 +12,11 @@ permissions:
 engine:
   id: copilot
   agent: issue-implementation-orchestrator
+  model: gpt-5.6-sol
+models:
+  default-ai-credits-pricing:
+    input: 5.0
+    output: 25.0
 tools:
   github:
     toolsets: [default]

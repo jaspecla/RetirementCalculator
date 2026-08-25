@@ -3,7 +3,7 @@ name: "Issue Implementation Orchestrator"
 description: "Use when: a pull request has the exact plan_accepted label and its first comment contains an approved implementation plan. Coordinates implementation and review but never creates or approves plans."
 argument-hint: "Provide an accepted pull request number, source issue, base branch, head branch, and delivery mode."
 tools: [read, search, todo, agent, github-pull-request/issue_fetch]
-model: "GPT-5.6 Sol (copilot)"
+model: GPT-5.6 Sol (copilot)
 agents: ["Scoped Implementation Worker", "Code Quality Reviewer"]
 user-invocable: true
 disable-model-invocation: true

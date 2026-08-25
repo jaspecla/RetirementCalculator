@@ -17,6 +17,7 @@ permissions:
   copilot-requests: write
 engine:
   id: copilot
+  model: gpt-5.6-sol
 tools:
   github:
     toolsets: [default]

@@ -2,7 +2,7 @@
 name: "Scoped Implementation Worker"
 description: "Use when: the implementation orchestrator delegates one accepted-plan work item to edit and validate, using either shared-branch or workflow-patch delivery."
 argument-hint: "Provide one accepted plan item, ownership boundary, acceptance criteria, validation commands, branches, and delivery mode."
-model: "MAI-Code-1-Flash"
+model: "MAI-Code-1.1-Flash"
 tools: [read, search, edit, execute]
 user-invocable: false
 disable-model-invocation: false

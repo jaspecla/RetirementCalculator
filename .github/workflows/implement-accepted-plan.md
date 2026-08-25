@@ -21,7 +21,7 @@ tools:
   github:
     toolsets: [default]
 network:
-  allowed: [defaults, dotnet]
+  allowed: [defaults, dotnet, playwright]
 safe-outputs:
   activation-comments: false
   push-to-pull-request-branch:

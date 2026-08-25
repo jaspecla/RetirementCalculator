@@ -7,7 +7,7 @@ on:
     types: [opened, edited]
   issue_comment:
     types: [created]
-if: ${{ github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false }}
+if: ${{ github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false && startsWith(github.event.issue.title, '[aw]') == false }}
 permissions:
   contents: read
   issues: read

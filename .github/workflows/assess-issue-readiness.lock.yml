@@ -73,7 +73,7 @@ jobs:
   activation:
     needs: pre_activation
     if: >
-      needs.pre_activation.outputs.activated == 'true' && (github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false)
+      needs.pre_activation.outputs.activated == 'true' && (github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false && startsWith(github.event.issue.title, '[aw]') == false)
     runs-on: ubuntu-slim
     permissions:
       actions: read
@@ -1577,7 +1577,7 @@ jobs:
 
   pre_activation:
     if: >
-      github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false
+      github.event.issue.pull_request == null && contains(github.event.issue.labels.*.name, 'ready_for_implementation') == false && startsWith(github.event.issue.title, '[aw]') == false
     runs-on: ubuntu-slim
     env:
       GH_AW_RUNTIME_FEATURES: ${{ vars.GH_AW_RUNTIME_FEATURES }}

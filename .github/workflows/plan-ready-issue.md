@@ -15,9 +15,9 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
+model: gpt-5.6-sol
 engine:
   id: copilot
-  model: gpt-5.6-sol
 tools:
   github:
     toolsets: [default]

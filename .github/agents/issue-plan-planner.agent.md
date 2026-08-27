@@ -3,7 +3,7 @@ name: "Issue Plan Planner"
 description: "Use when: turning a GitHub issue into an implementation plan and requesting a blank draft pull request whose first comment contains that plan. This agent plans only and never implements issue work."
 argument-hint: "Provide a GitHub issue URL or number and, optionally, base and head branches."
 tools: [read, search, github-pull-request/issue_fetch, github-pull-request/create_pull_request]
-model: "GPT-5.6 Sol (copilot)"
+model: gpt-5.6-sol
 agents: []
 user-invocable: true
 disable-model-invocation: true

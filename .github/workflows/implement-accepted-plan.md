@@ -17,6 +17,7 @@ on:
         description: Blocking findings from the independent reviewer.
         required: false
         type: string
+  bots: [github-actions]
 if: >-
   github.event_name == 'workflow_dispatch' ||
   (github.event.label.name == 'plan_accepted' && contains(github.event.pull_request.labels.*.name, 'plan_accepted'))
@@ -25,6 +26,8 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
+checkout:
+  ref: ${{ github.event.pull_request.head.sha || format('refs/pull/{0}/head', github.event.inputs.pull_request_number) }}
 model: gpt-5.6-sol
 engine:
   id: copilot

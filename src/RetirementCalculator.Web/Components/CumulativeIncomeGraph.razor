@@ -49,7 +49,7 @@
         $"<text x='18' y='{(plotTop + plotHeight / 2).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='12' text-anchor='middle' fill='currentColor' transform='rotate(-90 18 {(plotTop + plotHeight / 2).ToString("0.##", CultureInfo.InvariantCulture)})'>Cumulative income</text>";
 
     <figure class="cumulative-income-graph" aria-labelledby="cumulative-income-graph-title cumulative-income-graph-desc">
-        <svg viewBox="0 0 800 420" role="img" aria-labelledby="cumulative-income-graph-title cumulative-income-graph-desc" aria-label="@AccessibleName">
+        <svg viewBox="0 0 800 420" role="img" aria-labelledby="cumulative-income-graph-title cumulative-income-graph-desc" aria-describedby="cumulative-income-graph-desc" aria-label="@AccessibleName">
             <title id="cumulative-income-graph-title">@AccessibleName</title>
             <desc id="cumulative-income-graph-desc">@SummaryText</desc>
 
@@ -64,24 +64,24 @@
             @((MarkupString)seriesLabelsMarkup)
         </svg>
 
-        <figcaption id="cumulative-income-graph-desc-caption">@SummaryText</figcaption>
+        <figcaption id="cumulative-income-graph-desc-caption" class="graph-caption">@SummaryText</figcaption>
 
         <div class="cumulative-income-legend" role="list" aria-label="Cumulative income legend">
-            <div role="listitem" style="display:inline-flex; align-items:center; gap:0.5rem; margin-right:1rem;">
-                <svg aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
+            <div class="legend-item" role="listitem">
+                <svg class="legend-swatch" aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
                     <line x1="0" y1="6" x2="28" y2="6" stroke="#1f77b4" stroke-width="3" stroke-linecap="round" />
                 </svg>
                 <span>Claim at chosen age</span>
             </div>
-            <div role="listitem" style="display:inline-flex; align-items:center; gap:0.5rem;">
-                <svg aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
+            <div class="legend-item" role="listitem">
+                <svg class="legend-swatch" aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
                     <line x1="0" y1="6" x2="28" y2="6" stroke="#d62728" stroke-width="3" stroke-linecap="round" stroke-dasharray="7 7" />
                 </svg>
                 <span>Claim at full retirement age</span>
             </div>
         </div>
 
-        <div style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0;">
+        <div class="graph-accessibility-summary">
             <p>Chosen age cumulative income values: @FormatSeriesText(points, point => point.ChosenAgeCumulativeIncome).</p>
             <p>Full retirement age cumulative income values: @FormatSeriesText(points, point => point.FullRetirementAgeCumulativeIncome).</p>
         </div>

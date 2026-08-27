@@ -22,11 +22,19 @@ public sealed class CumulativeIncomeGraphComponentTests
             .Add(parameter => parameter.Projection, projection));
 
         Assert.AreEqual(1, cut.FindAll("svg[role='img']").Count);
+        var svg = cut.Find("svg[role='img']");
+        Assert.AreEqual("Cumulative income by age", svg.GetAttribute("aria-label"));
+        Assert.IsTrue(svg.HasAttribute("aria-labelledby"));
+        Assert.IsNotNull(cut.Find("title#cumulative-income-graph-title"));
+        Assert.IsNotNull(cut.Find("desc#cumulative-income-graph-desc"));
         Assert.IsTrue(cut.Markup.Contains("Cumulative income by age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim at chosen age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim at full retirement age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Cumulative income", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("62", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("$0", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("$36,000", StringComparison.Ordinal));
     }
 
     [TestMethod]

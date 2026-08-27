@@ -2,7 +2,7 @@
 name: "Code Quality Reviewer"
 description: "Use when: reviewing code produced from an accepted pull request plan before the implementation orchestrator declares completion."
 argument-hint: "Provide the issue, implementation plan, changed files, commit SHAs, acceptance criteria, and validation evidence."
-model: claude-opus-4.8
+model: claude-opus-5
 tools: [read, search]
 agents: []
 user-invocable: false

@@ -14,7 +14,11 @@ public sealed class HomePageTests
     public async Task InitializeBrowser()
     {
         _playwright = await Playwright.CreateAsync();
-        _browser = await _playwright.Chromium.LaunchAsync(new() { Headless = true });
+        _browser = await _playwright.Chromium.LaunchAsync(new()
+        {
+            Channel = "chrome",
+            Headless = true
+        });
         _page = await _browser.NewPageAsync();
     }
 

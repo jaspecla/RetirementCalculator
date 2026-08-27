@@ -27,21 +27,4 @@ public sealed class ScenarioResult
     /// requested planning age, with pre-claim values held at zero for the scenario.
     /// </summary>
     public required IReadOnlyList<AnnualCumulativeIncomePoint> AnnualCumulativeIncome { get; init; }
-
-    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
-    public IReadOnlyList<AnnualCumulativeIncomePoint> AnnualCumulativeIncomePoints => AnnualCumulativeIncome;
-
-    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
-    public IReadOnlyList<AnnualProjectionPoint> AnnualProjectionPoints =>
-        AnnualCumulativeIncome.Select(point => (AnnualProjectionPoint)point).ToList();
-
-    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
-    public IReadOnlyList<AnnualCumulativeIncomePoint> ProjectionPoints => AnnualCumulativeIncome;
-
-    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
-    public IReadOnlyList<ProjectionPoint> ProjectionSeries =>
-        AnnualCumulativeIncome.Select(point => (ProjectionPoint)point).ToList();
-
-    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
-    public IReadOnlyList<AnnualCumulativeIncomePoint> CumulativeIncomePoints => AnnualCumulativeIncome;
 }

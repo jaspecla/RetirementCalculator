@@ -69,6 +69,40 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.Locator(".ss-comparison-table")).ToContainTextAsync("Cumulative total through planning age");
     }
 
+    [TestMethod]
+    public async Task SubmitValidForm_NarrowViewport_ShowsGraphAndComparisonTable()
+    {
+        await _page.SetViewportSizeAsync(375, 812);
+        await _page.GotoAsync(BrowserTestHost.BaseUrl);
+
+        await WaitForInteractiveFormAsync();
+        var calculateButton = _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" });
+        await _page.Locator("#birthYear").FillAsync("1965");
+        await _page.Locator("#fraBenefit").FillAsync("2000");
+        await _page.Locator("#claimAgeYears").FillAsync("64");
+        await _page.Locator("#claimAgeMonths").FillAsync("6");
+        await _page.Locator("#planningAgeYears").FillAsync("90");
+        await _page.Locator("#planningAgeMonths").FillAsync("0");
+        await calculateButton.ClickAsync();
+        await ThrowIfBlazorFailedAsync();
+
+        var graph = _page.Locator("svg[role='img']");
+        var comparisonTable = _page.Locator(".ss-comparison-table");
+
+        await Assertions.Expect(graph).ToBeVisibleAsync();
+        await Assertions.Expect(comparisonTable).ToBeVisibleAsync();
+        await Assertions.Expect(graph).ToContainTextAsync("Annual cumulative income through planning age");
+        await Assertions.Expect(comparisonTable).ToContainTextAsync("Claim at chosen age");
+        await Assertions.Expect(comparisonTable).ToContainTextAsync("Claim at full retirement age");
+
+        var graphBox = await graph.BoundingBoxAsync();
+        var tableBox = await comparisonTable.BoundingBoxAsync();
+        Assert.IsNotNull(graphBox);
+        Assert.IsNotNull(tableBox);
+        Assert.IsTrue(graphBox.Width > 0 && graphBox.Height > 0);
+        Assert.IsTrue(tableBox.Width > 0 && tableBox.Height > 0);
+    }
+
     private async Task WaitForInteractiveFormAsync()
     {
         var deadline = DateTime.UtcNow.AddSeconds(10);

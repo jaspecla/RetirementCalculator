@@ -31,14 +31,17 @@
     width: 0.9rem;
     height: 0.9rem;
     border-radius: 0.2rem;
+    box-sizing: border-box;
 }
 
 .legend-chosen {
     background-color: #1b6ec2;
+    border: 2px solid #1b6ec2;
 }
 
 .legend-fra {
-    background-color: #2e8b57;
+    background-color: #fff;
+    border: 2px dashed #2e8b57;
 }
 
 .graph-wrapper {
@@ -68,6 +71,7 @@
 
 .series.fra {
     stroke: #2e8b57;
+    stroke-dasharray: 8 6;
 }
 
 .series-point {

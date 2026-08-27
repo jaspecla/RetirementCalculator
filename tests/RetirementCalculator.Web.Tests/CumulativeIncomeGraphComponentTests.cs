@@ -41,6 +41,14 @@ public sealed class CumulativeIncomeGraphComponentTests
         Assert.IsTrue(cut.Markup.Contains("Annual cumulative income through planning age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("<polyline", StringComparison.Ordinal));
 
+        var fraPolyline = cut.Find("polyline.series.fra");
+        Assert.IsTrue(fraPolyline.ClassList.Contains("series"));
+        Assert.IsTrue(fraPolyline.ClassList.Contains("fra"));
+
+        var fraLegendSwatch = cut.Find(".legend-swatch.legend-fra");
+        Assert.IsTrue(fraLegendSwatch.ClassList.Contains("legend-swatch"));
+        Assert.IsTrue(fraLegendSwatch.ClassList.Contains("legend-fra"));
+
         Assert.AreEqual(5, cut.FindAll("table tbody tr").Count);
         Assert.AreEqual(3, cut.FindAll("table thead th").Count);
     }

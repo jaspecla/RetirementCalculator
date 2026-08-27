@@ -61,6 +61,26 @@ public sealed class HomeComponentTests
         Assert.AreEqual(0, cut.FindAll(".field-error").Count);
     }
 
+    [TestMethod]
+    public void Submit_ValidInputRendersGraph_AndLaterInvalidInputClearsIt()
+    {
+        using var ctx = CreateContext();
+        var cut = ctx.Render<Home>();
+
+        Assert.AreEqual(0, cut.FindAll("svg[role='img']").Count);
+
+        SetValidInputs(cut);
+        cut.Find("form").Submit();
+
+        Assert.AreEqual(1, cut.FindAll("svg[role='img']").Count);
+
+        cut.Find("#claimAgeYears").Input(61);
+        cut.Find("form").Submit();
+
+        Assert.AreEqual(0, cut.FindAll("svg[role='img']").Count);
+        Assert.IsTrue(cut.Markup.Contains("Claim age must be at least 62 years.", StringComparison.Ordinal));
+    }
+
     private static void SetValidInputs(IRenderedComponent<Home> cut)
     {
         cut.Find("#birthYear").Input(1965);

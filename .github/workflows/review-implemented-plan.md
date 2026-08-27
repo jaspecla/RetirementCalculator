@@ -64,4 +64,6 @@ When blocking findings remain, also call `dispatch_workflow` exactly once for `i
 - `reviewed_head_sha`: `${{ github.event.pull_request.head.sha }}`
 - `review_findings`: the complete blocking findings, including locations, evidence, impact, remediation, and validation requirements
 
+The dispatched implementation run pushes its repairs, which triggers this workflow again, so the review-and-repair cycle continues until a review finds no blocking findings. To bound that cycle, count the reviews already submitted on this pull request by this workflow, including the one you just submitted. If that count reaches five, do not dispatch. Instead state in the check summary that the automated repair budget is exhausted and that the remaining findings need human attention.
+
 Do not dispatch a follow-up for low-severity suggestions or missing/stale context. Do not approve the pull request. Use `noop` only when the pull request is no longer eligible for review and no review or check output is appropriate.

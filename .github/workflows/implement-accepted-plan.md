@@ -37,7 +37,7 @@ tools:
   github:
     toolsets: [default]
 network:
-  allowed: [defaults, dotnet, playwright]
+  allowed: [defaults, dotnet, playwright, storage.googleapis.com]
 safe-outputs:
   activation-comments: false
   push-to-pull-request-branch:

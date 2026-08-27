@@ -15,6 +15,24 @@ public sealed class SocialSecurityComparisonResult
     /// <summary>Scenario for waiting until full retirement age.</summary>
     public required ScenarioResult FullRetirementAgeScenario { get; init; }
 
+    /// <summary>Ordered cumulative-income points from the claim age through the planning age.</summary>
+    public IReadOnlyList<CumulativeIncomeProjectionPoint> CumulativeIncomeProjection { get; init; } = Array.Empty<CumulativeIncomeProjectionPoint>();
+
+    /// <summary>Alias for <see cref="CumulativeIncomeProjection"/> used by graphing consumers.</summary>
+    public IReadOnlyList<AnnualCumulativeIncomeProjectionPoint> AnnualCumulativeIncomeProjection =>
+        CumulativeIncomeProjection is IReadOnlyList<AnnualCumulativeIncomeProjectionPoint> annualProjection
+            ? annualProjection
+            : Array.Empty<AnnualCumulativeIncomeProjectionPoint>();
+
+    /// <summary>Alias for <see cref="CumulativeIncomeProjection"/>.</summary>
+    public IReadOnlyList<CumulativeIncomeProjectionPoint> ProjectionPoints => CumulativeIncomeProjection;
+
+    /// <summary>Alias for <see cref="CumulativeIncomeProjection"/>.</summary>
+    public IReadOnlyList<CumulativeIncomeProjectionPoint> CumulativeIncomeProjectionPoints => CumulativeIncomeProjection;
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncomeProjection"/>.</summary>
+    public IReadOnlyList<AnnualCumulativeIncomeProjectionPoint> AnnualProjectionPoints => AnnualCumulativeIncomeProjection;
+
     /// <summary>True when the chosen claim age is the same as FRA (identical scenarios).</summary>
     public required bool IsChosenAgeSameAsFullRetirementAge { get; init; }
 

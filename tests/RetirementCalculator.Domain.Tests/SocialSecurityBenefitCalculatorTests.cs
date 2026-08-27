@@ -111,6 +111,29 @@ public sealed class SocialSecurityBenefitCalculatorTests
     }
 
     [TestMethod]
+    public void Calculate_CumulativeIncomeProjection_ReturnsOrderedPointsThroughPlanningAge()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 67, planningMonths: 6);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        Assert.AreEqual(new Age(62, 0), result.CumulativeIncomeProjection[0].Age);
+        Assert.AreEqual(7, result.CumulativeIncomeProjection.Count);
+        Assert.AreEqual(new Age(67, 6), result.CumulativeIncomeProjection[^1].Age);
+        Assert.AreEqual(0m, result.CumulativeIncomeProjection[0].ChosenAgeCumulativeIncome);
+        Assert.AreEqual(0m, result.CumulativeIncomeProjection[0].FullRetirementAgeCumulativeIncome);
+        Assert.AreEqual(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge,
+            result.CumulativeIncomeProjection[^1].ChosenAgeCumulativeIncome);
+        Assert.AreEqual(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge,
+            result.CumulativeIncomeProjection[^1].FullRetirementAgeCumulativeIncome);
+
+        var firstAnnualPoint = result.AnnualCumulativeIncomeProjection[0];
+        Assert.AreEqual(new Age(62, 0), firstAnnualPoint.Age);
+        Assert.AreEqual(result.CumulativeIncomeProjection[0].ChosenAgeCumulativeIncome,
+            firstAnnualPoint.ChosenAgeCumulativeIncome);
+    }
+
+    [TestMethod]
     public void Calculate_WaitingIncrease_IsPositiveWhenClaimingEarly()
     {
         var input = CreateInput(birthYear: 1962, fraBenefit: 2200m, claimYears: 63, claimMonths: 6, planningYears: 90);

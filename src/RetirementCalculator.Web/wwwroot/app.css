@@ -152,6 +152,36 @@ input[aria-invalid="true"] {
     padding-left: 1.25rem;
 }
 
+.ss-graph-wrapper {
+    margin-top: 1.5rem;
+    max-width: 60rem;
+}
+
+.ss-graph-wrapper h3 {
+    margin-bottom: 0.75rem;
+}
+
+.cumulative-income-graph {
+    position: relative;
+    width: 100%;
+    max-width: 100%;
+    margin: 0;
+}
+
+.cumulative-income-graph svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    max-width: 100%;
+}
+
+.cumulative-income-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem 1rem;
+    margin-top: 0.75rem;
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;

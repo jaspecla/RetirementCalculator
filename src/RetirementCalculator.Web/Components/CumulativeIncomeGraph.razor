@@ -1,0 +1,169 @@
+@using System.Globalization
+@using RetirementCalculator.Domain.Models
+
+@if (Projection is { Count: > 0 })
+{
+    var points = Projection;
+    var minAgeMonths = points.Min(point => point.Age.TotalMonths);
+    var maxAgeMonths = points.Max(point => point.Age.TotalMonths);
+    var maxValue = points
+        .SelectMany(point => new[] { point.ChosenAgeCumulativeIncome, point.FullRetirementAgeCumulativeIncome })
+        .DefaultIfEmpty(0m)
+        .Max();
+    var plotLeft = 72d;
+    var plotTop = 26d;
+    var plotWidth = 680d;
+    var plotHeight = 280d;
+    var chosenPath = BuildSeriesPath(points, point => point.ChosenAgeCumulativeIncome, minAgeMonths, maxAgeMonths, maxValue, plotLeft, plotTop, plotWidth, plotHeight);
+    var fraPath = BuildSeriesPath(points, point => point.FullRetirementAgeCumulativeIncome, minAgeMonths, maxAgeMonths, maxValue, plotLeft, plotTop, plotWidth, plotHeight);
+    var firstPoint = points[0];
+    var lastPoint = points[^1];
+    var chosenSeriesName = "Claim at chosen age";
+    var fullRetirementSeriesName = "Claim at full retirement age";
+    var chosenSeriesEndX = GetX(lastPoint.Age.TotalMonths, minAgeMonths, maxAgeMonths, plotLeft, plotWidth);
+    var chosenSeriesEndY = GetY(lastPoint.ChosenAgeCumulativeIncome, maxValue, plotTop, plotHeight);
+    var fraSeriesEndX = GetX(lastPoint.Age.TotalMonths, minAgeMonths, maxAgeMonths, plotLeft, plotWidth);
+    var fraSeriesEndY = GetY(lastPoint.FullRetirementAgeCumulativeIncome, maxValue, plotTop, plotHeight);
+    var axisLabelMarkup = new System.Text.StringBuilder();
+    for (var tick = 0; tick <= 4; tick++)
+    {
+        var value = maxValue * tick / 4m;
+        var y = GetY(value, maxValue, plotTop, plotHeight);
+        var label = FormatCurrency(value);
+        axisLabelMarkup.Append($"<line x1='{plotLeft}' y1='{y.ToString("0.##", CultureInfo.InvariantCulture)}' x2='{(plotLeft + plotWidth).ToString("0.##", CultureInfo.InvariantCulture)}' y2='{y.ToString("0.##", CultureInfo.InvariantCulture)}' stroke='currentColor' stroke-width='0.75' opacity='0.2' />");
+        axisLabelMarkup.Append($"<text x='{(plotLeft - 10).ToString("0.##", CultureInfo.InvariantCulture)}' y='{(y + 4).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='11' text-anchor='end' fill='currentColor'>{label}</text>");
+    }
+
+    for (var index = 0; index < points.Count; index++)
+    {
+        var point = points[index];
+        var x = GetX(point.Age.TotalMonths, minAgeMonths, maxAgeMonths, plotLeft, plotWidth);
+        var label = point.Age.Years.ToString(CultureInfo.InvariantCulture);
+        axisLabelMarkup.Append($"<line x1='{x.ToString("0.##", CultureInfo.InvariantCulture)}' y1='{(plotTop + plotHeight).ToString("0.##", CultureInfo.InvariantCulture)}' x2='{x.ToString("0.##", CultureInfo.InvariantCulture)}' y2='{(plotTop + plotHeight + 6).ToString("0.##", CultureInfo.InvariantCulture)}' stroke='currentColor' stroke-width='1' />");
+        axisLabelMarkup.Append($"<text x='{x.ToString("0.##", CultureInfo.InvariantCulture)}' y='{(plotTop + plotHeight + 18).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='11' text-anchor='middle' fill='currentColor'>{label}</text>");
+    }
+
+    var seriesLabelsMarkup = $"<text x='{(chosenSeriesEndX + 10).ToString("0.##", CultureInfo.InvariantCulture)}' y='{(chosenSeriesEndY - 6).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='12' fill='#1f77b4' font-weight='600'>{chosenSeriesName}</text>" +
+        $"<text x='{(fraSeriesEndX + 10).ToString("0.##", CultureInfo.InvariantCulture)}' y='{(fraSeriesEndY + 16).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='12' fill='#d62728' font-weight='600'>{fullRetirementSeriesName}</text>" +
+        $"<text x='{(plotLeft + plotWidth / 2).ToString("0.##", CultureInfo.InvariantCulture)}' y='400' font-size='12' text-anchor='middle' fill='currentColor'>Age</text>" +
+        $"<text x='18' y='{(plotTop + plotHeight / 2).ToString("0.##", CultureInfo.InvariantCulture)}' font-size='12' text-anchor='middle' fill='currentColor' transform='rotate(-90 18 {(plotTop + plotHeight / 2).ToString("0.##", CultureInfo.InvariantCulture)})'>Cumulative income</text>";
+
+    <figure class="cumulative-income-graph" aria-labelledby="cumulative-income-graph-title cumulative-income-graph-desc">
+        <svg viewBox="0 0 800 420" role="img" aria-labelledby="cumulative-income-graph-title cumulative-income-graph-desc" aria-label="@AccessibleName">
+            <title id="cumulative-income-graph-title">@AccessibleName</title>
+            <desc id="cumulative-income-graph-desc">@SummaryText</desc>
+
+            <g aria-hidden="true">
+                <line x1="@plotLeft" y1="@(plotTop + plotHeight)" x2="@(plotLeft + plotWidth)" y2="@(plotTop + plotHeight)" stroke="currentColor" stroke-width="1.5" />
+                <line x1="@plotLeft" y1="@plotTop" x2="@plotLeft" y2="@(plotTop + plotHeight)" stroke="currentColor" stroke-width="1.5" />
+                @((MarkupString)axisLabelMarkup.ToString())
+            </g>
+
+            <path class="series chosen-age-series" d="@chosenPath" fill="none" stroke="#1f77b4" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+            <path class="series fra-series" d="@fraPath" fill="none" stroke="#d62728" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="7 7" />
+            @((MarkupString)seriesLabelsMarkup)
+        </svg>
+
+        <figcaption id="cumulative-income-graph-desc-caption">@SummaryText</figcaption>
+
+        <div class="cumulative-income-legend" role="list" aria-label="Cumulative income legend">
+            <div role="listitem" style="display:inline-flex; align-items:center; gap:0.5rem; margin-right:1rem;">
+                <svg aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
+                    <line x1="0" y1="6" x2="28" y2="6" stroke="#1f77b4" stroke-width="3" stroke-linecap="round" />
+                </svg>
+                <span>Claim at chosen age</span>
+            </div>
+            <div role="listitem" style="display:inline-flex; align-items:center; gap:0.5rem;">
+                <svg aria-hidden="true" width="28" height="12" viewBox="0 0 28 12" preserveAspectRatio="none">
+                    <line x1="0" y1="6" x2="28" y2="6" stroke="#d62728" stroke-width="3" stroke-linecap="round" stroke-dasharray="7 7" />
+                </svg>
+                <span>Claim at full retirement age</span>
+            </div>
+        </div>
+
+        <div style="position:absolute; width:1px; height:1px; padding:0; margin:-1px; overflow:hidden; clip:rect(0, 0, 0, 0); white-space:nowrap; border:0;">
+            <p>Chosen age cumulative income values: @FormatSeriesText(points, point => point.ChosenAgeCumulativeIncome).</p>
+            <p>Full retirement age cumulative income values: @FormatSeriesText(points, point => point.FullRetirementAgeCumulativeIncome).</p>
+        </div>
+    </figure>
+}
+
+@code {
+    [Parameter]
+    public IReadOnlyList<CumulativeIncomeProjectionPoint>? Projection { get; set; }
+
+    [Parameter]
+    public string AccessibleName { get; set; } = "Cumulative income by age";
+
+    private string SummaryText => "Cumulative income over time for the chosen-age and full-retirement-age scenarios.";
+
+    private static string BuildSeriesPath(
+        IReadOnlyList<CumulativeIncomeProjectionPoint> points,
+        Func<CumulativeIncomeProjectionPoint, decimal> selector,
+        int minAgeMonths,
+        int maxAgeMonths,
+        decimal maxValue,
+        double plotLeft,
+        double plotTop,
+        double plotWidth,
+        double plotHeight)
+    {
+        if (points.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var segments = new List<string>(points.Count);
+        for (var index = 0; index < points.Count; index++)
+        {
+            var point = points[index];
+            var x = GetX(point.Age.TotalMonths, minAgeMonths, maxAgeMonths, plotLeft, plotWidth);
+            var y = GetY(selector(point), maxValue, plotTop, plotHeight);
+            var prefix = index == 0 ? "M" : "L";
+            segments.Add($"{prefix} {x.ToString("0.##", CultureInfo.InvariantCulture)} {y.ToString("0.##", CultureInfo.InvariantCulture)}");
+        }
+
+        return string.Join(" ", segments);
+    }
+
+    private static double GetX(int ageMonths, int minAgeMonths, int maxAgeMonths, double plotLeft, double plotWidth)
+    {
+        var range = maxAgeMonths - minAgeMonths;
+        if (range <= 0)
+        {
+            return plotLeft + plotWidth / 2d;
+        }
+
+        var agePosition = (double)(ageMonths - minAgeMonths) / range;
+        return plotLeft + (agePosition * plotWidth);
+    }
+
+    private static double GetY(decimal value, decimal maxValue, double plotTop, double plotHeight)
+    {
+        if (maxValue <= 0m)
+        {
+            return plotTop + plotHeight;
+        }
+
+        var normalized = value <= 0m ? 0d : (double)(value / maxValue);
+        var y = plotTop + plotHeight - (normalized * plotHeight);
+        return y;
+    }
+
+    private static string FormatCurrency(decimal value)
+    {
+        return value.ToString("C0", new CultureInfo("en-US"));
+    }
+
+    private static string FormatSeriesText(
+        IReadOnlyList<CumulativeIncomeProjectionPoint> points,
+        Func<CumulativeIncomeProjectionPoint, decimal> selector)
+    {
+        if (points.Count == 0)
+        {
+            return "no values";
+        }
+
+        return string.Join(", ", points.Select(point => $"{point.Age}: {FormatCurrency(selector(point))}"));
+    }
+}

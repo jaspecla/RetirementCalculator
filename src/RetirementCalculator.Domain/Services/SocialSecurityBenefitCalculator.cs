@@ -56,6 +56,8 @@ public static class SocialSecurityBenefitCalculator
             PaymentMonthsThroughPlanningAge = PaymentMonths(fullRetirementAge, planningAge),
         };
 
+        var cumulativeIncomeProjection = CalculateCumulativeIncomeProjection(claimAge, planningAge, chosenAgeMonthlyBenefit, fullRetirementAge, fraBenefit);
+
         Age? breakEvenAge = isChosenAgeSameAsFra
             ? null
             : FindBreakEvenAge(claimAge, chosenAgeMonthlyBenefit, fullRetirementAge, fraBenefit);
@@ -65,9 +67,72 @@ public static class SocialSecurityBenefitCalculator
             FullRetirementAge = fullRetirementAge,
             ChosenAgeScenario = chosenAgeScenario,
             FullRetirementAgeScenario = fraScenario,
+            CumulativeIncomeProjection = cumulativeIncomeProjection,
             IsChosenAgeSameAsFullRetirementAge = isChosenAgeSameAsFra,
             BreakEvenAge = breakEvenAge,
         };
+    }
+
+    public static IReadOnlyList<AnnualCumulativeIncomeProjectionPoint> CalculateAnnualCumulativeIncomeProjection(
+        SocialSecurityCalculatorInput input)
+    {
+        ArgumentNullException.ThrowIfNull(input);
+
+        var birthYear = input.BirthYear ?? throw new ArgumentException("Birth year is required.", nameof(input));
+        var fraBenefit = input.MonthlyBenefitAtFullRetirementAge
+            ?? throw new ArgumentException("Monthly benefit at full retirement age is required.", nameof(input));
+        var claimAge = new Age(
+            input.ClaimAgeYears ?? throw new ArgumentException("Claim age years is required.", nameof(input)),
+            input.ClaimAgeMonths ?? throw new ArgumentException("Claim age months is required.", nameof(input)));
+        var planningAge = new Age(
+            input.PlanningAgeYears ?? throw new ArgumentException("Planning age years is required.", nameof(input)),
+            input.PlanningAgeMonths ?? throw new ArgumentException("Planning age months is required.", nameof(input)));
+
+        var fullRetirementAge = FullRetirementAgeCalculator.Calculate(birthYear);
+        var monthsEarly = Math.Max(fullRetirementAge.TotalMonths - claimAge.TotalMonths, 0);
+        var reductionFraction = EarlyClaimingReductionCalculator.CalculateReductionFraction(monthsEarly);
+        var chosenAgeMonthlyBenefit = Math.Round(fraBenefit * (1m - reductionFraction), 2, MidpointRounding.AwayFromZero);
+
+        return CalculateCumulativeIncomeProjection(claimAge, planningAge, chosenAgeMonthlyBenefit, fullRetirementAge, fraBenefit);
+    }
+
+    public static IReadOnlyList<CumulativeIncomeProjectionPoint> CalculateCumulativeIncomeProjection(
+        SocialSecurityCalculatorInput input)
+        => CalculateAnnualCumulativeIncomeProjection(input);
+
+    private static IReadOnlyList<AnnualCumulativeIncomeProjectionPoint> CalculateCumulativeIncomeProjection(
+        Age claimAge,
+        Age planningAge,
+        decimal chosenMonthlyBenefit,
+        Age fullRetirementAge,
+        decimal fraMonthlyBenefit)
+    {
+        var points = new List<AnnualCumulativeIncomeProjectionPoint>();
+        var currentTotalMonths = claimAge.TotalMonths;
+
+        while (currentTotalMonths <= planningAge.TotalMonths)
+        {
+            var age = Age.FromTotalMonths(currentTotalMonths);
+            points.Add(new AnnualCumulativeIncomeProjectionPoint
+            {
+                Age = age,
+                ChosenAgeCumulativeIncome = CumulativeAt(currentTotalMonths, claimAge, chosenMonthlyBenefit),
+                FullRetirementAgeCumulativeIncome = CumulativeAt(currentTotalMonths, fullRetirementAge, fraMonthlyBenefit),
+            });
+
+            if (currentTotalMonths == planningAge.TotalMonths)
+            {
+                break;
+            }
+
+            currentTotalMonths += 12;
+            if (currentTotalMonths > planningAge.TotalMonths)
+            {
+                currentTotalMonths = planningAge.TotalMonths;
+            }
+        }
+
+        return points;
     }
 
     private static int PaymentMonths(Age claimAge, Age planningAge) =>

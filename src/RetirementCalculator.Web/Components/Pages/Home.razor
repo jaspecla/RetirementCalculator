@@ -143,6 +143,14 @@
             </table>
         </div>
 
+        @if (result.AnnualCumulativeIncomeProjection.Count > 0)
+        {
+            <div class="ss-graph-wrapper">
+                <h3>Cumulative income by age</h3>
+                <CumulativeIncomeGraph Projection="@result.AnnualCumulativeIncomeProjection" AccessibleName="Cumulative income by age" />
+            </div>
+        }
+
         <ul class="ss-summary-list">
             <li>Waiting increase: @FormatCurrency(result.WaitingIncreaseAmount) per month
                 (@FormatPercent(result.WaitingIncreasePercent))</li>

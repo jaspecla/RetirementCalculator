@@ -45,6 +45,7 @@ public sealed class HomeComponentTests
         cut.Find("form").Submit();
 
         Assert.IsFalse(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsFalse(cut.Markup.Contains("Cumulative income by age", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim age must be at least 62 years.", StringComparison.Ordinal));
     }
 
@@ -58,6 +59,9 @@ public sealed class HomeComponentTests
         cut.Find("form").Submit();
 
         Assert.IsTrue(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("Cumulative income by age", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("Claim at chosen age", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("Claim at full retirement age", StringComparison.Ordinal));
         Assert.AreEqual(0, cut.FindAll(".field-error").Count);
     }
 

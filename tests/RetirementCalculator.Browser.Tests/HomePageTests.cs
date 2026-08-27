@@ -40,7 +40,7 @@ public sealed class HomePageTests
     }
 
     [TestMethod]
-    public async Task SubmitValidForm_ShowsComparisonResults()
+    public async Task SubmitValidForm_ShowsComparisonResultsAndGraph()
     {
         await _page.GotoAsync(BrowserTestHost.BaseUrl);
 
@@ -58,6 +58,34 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at chosen age");
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at full retirement age");
+        await Assertions.Expect(_page.GetByRole(AriaRole.Img, new() { Name = "Cumulative income by age" })).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Claim at chosen age").First).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Claim at full retirement age").First).ToBeVisibleAsync();
+    }
+
+    [TestMethod]
+    public async Task SubmitValidForm_OnNarrowViewport_StillShowsGraphAndTable()
+    {
+        await _page.SetViewportSizeAsync(360, 800);
+        await _page.GotoAsync(BrowserTestHost.BaseUrl);
+
+        await WaitForInteractiveFormAsync();
+        var calculateButton = _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" });
+        await _page.Locator("#birthYear").FillAsync("1965");
+        await _page.Locator("#fraBenefit").FillAsync("2000");
+        await _page.Locator("#claimAgeYears").FillAsync("64");
+        await _page.Locator("#claimAgeMonths").FillAsync("6");
+        await _page.Locator("#planningAgeYears").FillAsync("90");
+        await _page.Locator("#planningAgeMonths").FillAsync("0");
+        await calculateButton.ClickAsync();
+        await ThrowIfBlazorFailedAsync();
+
+        var graph = _page.GetByRole(AriaRole.Img, new() { Name = "Cumulative income by age" });
+        await Assertions.Expect(graph).ToBeVisibleAsync();
+        var graphBox = await graph.BoundingBoxAsync();
+        Assert.IsNotNull(graphBox);
+        Assert.IsTrue(graphBox.Width > 100, $"Expected graph to remain visible on a narrow viewport, but its width was {graphBox.Width}.");
+        await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToBeVisibleAsync();
     }
 
     private async Task WaitForInteractiveFormAsync()

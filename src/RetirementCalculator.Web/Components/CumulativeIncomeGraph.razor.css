@@ -1,0 +1,145 @@
+.cumulative-income-graph {
+    border: 1px solid #d0d0d0;
+    border-radius: 0.5rem;
+    background-color: #fff;
+    padding: 1rem;
+    margin-top: 1.5rem;
+}
+
+.graph-heading {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+}
+
+.graph-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 0.95rem;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 0.2rem;
+}
+
+.legend-chosen {
+    background-color: #1b6ec2;
+}
+
+.legend-fra {
+    background-color: #2e8b57;
+}
+
+.graph-wrapper {
+    width: 100%;
+    overflow: hidden;
+}
+
+.cumulative-income-svg {
+    display: block;
+    width: 100%;
+    height: auto;
+    background-color: #f8fafc;
+    border: 1px solid #e5e7eb;
+    border-radius: 0.25rem;
+}
+
+.series {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.series.chosen {
+    stroke: #1b6ec2;
+}
+
+.series.fra {
+    stroke: #2e8b57;
+}
+
+.series-point {
+    stroke: #ffffff;
+    stroke-width: 1.5;
+}
+
+.series-point.chosen {
+    fill: #1b6ec2;
+}
+
+.series-point.fra {
+    fill: #2e8b57;
+}
+
+.grid-line {
+    stroke: #d1d5db;
+    stroke-width: 1;
+}
+
+.axis-line {
+    stroke: #4b5563;
+    stroke-width: 1.2;
+}
+
+.axis-label {
+    fill: #374151;
+    font-size: 10px;
+}
+
+.graph-table-wrapper {
+    overflow-x: auto;
+    margin-top: 1rem;
+}
+
+.graph-data-table {
+    width: 100%;
+    min-width: 24rem;
+    border-collapse: collapse;
+}
+
+.graph-data-table th,
+.graph-data-table td {
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d0d0d0;
+    text-align: left;
+}
+
+.graph-data-table thead th {
+    background-color: #f1f5f9;
+}
+
+.graph-empty-state {
+    margin: 0;
+    color: #4b5563;
+}
+
+.visually-hidden {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+@media (max-width: 40rem) {
+    .graph-legend {
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+}

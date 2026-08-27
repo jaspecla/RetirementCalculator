@@ -1,0 +1,90 @@
+@using RetirementCalculator.Domain.Models
+
+<figure class="cumulative-income-graph" aria-labelledby="cumulative-income-graph-title">
+    <figcaption id="cumulative-income-graph-title" class="graph-heading">@Title</figcaption>
+
+    <div class="graph-legend" aria-label="Cumulative income series legend">
+        <span class="legend-item"><span class="legend-swatch legend-chosen"></span>@ChosenAgeLabel</span>
+        <span class="legend-item"><span class="legend-swatch legend-fra"></span>@FullRetirementAgeLabel</span>
+    </div>
+
+    @if (!HasData)
+    {
+        <p class="graph-empty-state" role="status">No cumulative-income data is available for this comparison.</p>
+    }
+    else
+    {
+        <div class="graph-wrapper">
+            <svg class="cumulative-income-svg"
+                 role="img"
+                 aria-labelledby="cumulative-income-graph-title cumulative-income-graph-svg-title cumulative-income-graph-description"
+                 viewBox="0 0 @SvgWidth @SvgHeight"
+                 preserveAspectRatio="xMidYMid meet">
+                <title id="cumulative-income-graph-svg-title">@Title</title>
+                <desc id="cumulative-income-graph-description">
+                    A comparison of cumulative income by age for the chosen-age and full-retirement-age claiming scenarios.
+                </desc>
+
+                @foreach (var tick in YTicks)
+                {
+                    <g>
+                        <line class="grid-line" x1="@PlotLeft" y1="@tick.Y" x2="@(SvgWidth - PlotRight)" y2="@tick.Y" />
+                        <text class="axis-label" x="@(PlotLeft - 8)" y="@(tick.Y + 4)" text-anchor="end">@FormatCurrency(tick.Value)</text>
+                    </g>
+                }
+
+                <line class="axis-line" x1="@PlotLeft" y1="@PlotTop" x2="@PlotLeft" y2="@(SvgHeight - PlotBottom)" />
+                <line class="axis-line" x1="@PlotLeft" y1="@(SvgHeight - PlotBottom)" x2="@(SvgWidth - PlotRight)" y2="@(SvgHeight - PlotBottom)" />
+
+                @if (ChosenCoordinates.Count > 0)
+                {
+                    if (ChosenCoordinates.Count == 1)
+                    {
+                        var point = ChosenCoordinates[0];
+                        <circle class="series-point chosen" cx="@point.X" cy="@point.Y" r="4" />
+                    }
+                    else
+                    {
+                        <polyline class="series chosen" points="@BuildPolylinePoints(ChosenCoordinates)" />
+                    }
+                }
+
+                @if (FraCoordinates.Count > 0)
+                {
+                    if (FraCoordinates.Count == 1)
+                    {
+                        var point = FraCoordinates[0];
+                        <circle class="series-point fra" cx="@point.X" cy="@point.Y" r="4" />
+                    }
+                    else
+                    {
+                        <polyline class="series fra" points="@BuildPolylinePoints(FraCoordinates)" />
+                    }
+                }
+            </svg>
+        </div>
+    }
+
+    <div class="graph-table-wrapper">
+        <table class="graph-data-table" aria-label="Annual cumulative income values by age">
+            <caption class="visually-hidden">Annual cumulative-income values for the chosen-age and full-retirement-age scenarios.</caption>
+            <thead>
+                <tr>
+                    <th scope="col">Age</th>
+                    <th scope="col">@ChosenAgeLabel</th>
+                    <th scope="col">@FullRetirementAgeLabel</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in TableRows)
+                {
+                    <tr>
+                        <th scope="row">@FormatAge(row.Age)</th>
+                        <td>@FormatOptionalCurrency(row.ChosenAgeCumulativeIncome)</td>
+                        <td>@FormatOptionalCurrency(row.FullRetirementAgeCumulativeIncome)</td>
+                    </tr>
+                }
+            </tbody>
+        </table>
+    </div>
+</figure>

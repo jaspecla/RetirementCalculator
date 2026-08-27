@@ -1,0 +1,24 @@
+@using RetirementCalculator.Domain.Models
+
+<CumulativeIncomeGraph ChosenAgeSeries="ChosenAgeSeries"
+                      FullRetirementAgeSeries="FullRetirementAgeSeries"
+                      ChosenAgeLabel="@ChosenAgeLabel"
+                      FullRetirementAgeLabel="@FullRetirementAgeLabel"
+                      Title="@Title" />
+
+@code {
+    [Parameter]
+    public IReadOnlyList<AnnualCumulativeIncomePoint>? ChosenAgeSeries { get; set; }
+
+    [Parameter]
+    public IReadOnlyList<AnnualCumulativeIncomePoint>? FullRetirementAgeSeries { get; set; }
+
+    [Parameter]
+    public string ChosenAgeLabel { get; set; } = "Claim at chosen age";
+
+    [Parameter]
+    public string FullRetirementAgeLabel { get; set; } = "Claim at full retirement age";
+
+    [Parameter]
+    public string Title { get; set; } = "Annual cumulative income through planning age";
+}

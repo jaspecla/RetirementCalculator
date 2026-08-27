@@ -37,6 +37,32 @@ public sealed class SocialSecurityBenefitCalculatorTests
     }
 
     [TestMethod]
+    public void Calculate_AnnualCumulativeIncomePoints_AreOrderedAndMatchPlanningTotals()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 67, planningMonths: 6);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        var chosenPoints = result.ChosenAgeScenario.AnnualCumulativeIncome;
+        Assert.AreEqual(new Age(62, 0), chosenPoints[0].Age);
+        Assert.AreEqual(new Age(67, 6), chosenPoints[^1].Age);
+        Assert.AreEqual(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge, chosenPoints[^1].CumulativeIncome);
+
+        for (var index = 1; index < chosenPoints.Count; index++)
+        {
+            Assert.IsTrue(chosenPoints[index - 1].Age.TotalMonths <= chosenPoints[index].Age.TotalMonths,
+                "Annual cumulative-income points should remain in ascending order.");
+        }
+
+        var preClaimFraValues = result.FullRetirementAgeScenario.AnnualCumulativeIncome
+            .TakeWhile(point => point.Age.TotalMonths < result.FullRetirementAgeScenario.ClaimAge.TotalMonths)
+            .ToList();
+        CollectionAssert.AreEqual(
+            Enumerable.Repeat(0m, preClaimFraValues.Count).ToList(),
+            preClaimFraValues.Select(point => point.CumulativeIncome).ToList());
+    }
+
+    [TestMethod]
     public void Calculate_ClaimAgeEqualsFullRetirementAge_ScenariosAreIdenticalWithNoBreakEven()
     {
         var input = CreateInput(birthYear: 1960, fraBenefit: 2500m, claimYears: 67, claimMonths: 0, planningYears: 90);
@@ -48,6 +74,10 @@ public sealed class SocialSecurityBenefitCalculatorTests
         Assert.AreEqual(0m, result.WaitingIncreaseAmount);
         Assert.AreEqual(0m, result.WaitingIncreasePercent);
         Assert.IsNull(result.BreakEvenAge);
+        Assert.AreEqual(result.ChosenAgeScenario.AnnualCumulativeIncome.Count, result.FullRetirementAgeScenario.AnnualCumulativeIncome.Count);
+        CollectionAssert.AreEqual(
+            result.ChosenAgeScenario.AnnualCumulativeIncome.Select(point => point.CumulativeIncome).ToList(),
+            result.FullRetirementAgeScenario.AnnualCumulativeIncome.Select(point => point.CumulativeIncome).ToList());
     }
 
     [TestMethod]

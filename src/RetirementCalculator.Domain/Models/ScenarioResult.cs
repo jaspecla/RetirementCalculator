@@ -7,6 +7,9 @@ public sealed class ScenarioResult
 {
     public required Age ClaimAge { get; init; }
 
+    /// <summary>The age through which the scenario is projected.</summary>
+    public required Age PlanningAge { get; init; }
+
     /// <summary>Constant nominal monthly benefit amount for this scenario.</summary>
     public required decimal MonthlyBenefit { get; init; }
 
@@ -18,4 +21,27 @@ public sealed class ScenarioResult
 
     /// <summary>Total nominal dollars received from claiming through the planning age.</summary>
     public decimal CumulativeTotalThroughPlanningAge => MonthlyBenefit * PaymentMonthsThroughPlanningAge;
+
+    /// <summary>
+    /// Ordered annual cumulative-income points from the earliest claim age through the
+    /// requested planning age, with pre-claim values held at zero for the scenario.
+    /// </summary>
+    public required IReadOnlyList<AnnualCumulativeIncomePoint> AnnualCumulativeIncome { get; init; }
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
+    public IReadOnlyList<AnnualCumulativeIncomePoint> AnnualCumulativeIncomePoints => AnnualCumulativeIncome;
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
+    public IReadOnlyList<AnnualProjectionPoint> AnnualProjectionPoints =>
+        AnnualCumulativeIncome.Select(point => (AnnualProjectionPoint)point).ToList();
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
+    public IReadOnlyList<AnnualCumulativeIncomePoint> ProjectionPoints => AnnualCumulativeIncome;
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
+    public IReadOnlyList<ProjectionPoint> ProjectionSeries =>
+        AnnualCumulativeIncome.Select(point => (ProjectionPoint)point).ToList();
+
+    /// <summary>Alias for <see cref="AnnualCumulativeIncome"/>.</summary>
+    public IReadOnlyList<AnnualCumulativeIncomePoint> CumulativeIncomePoints => AnnualCumulativeIncome;
 }

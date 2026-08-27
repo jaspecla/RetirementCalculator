@@ -41,19 +41,24 @@ public static class SocialSecurityBenefitCalculator
         var chosenAgeMonthlyBenefit = Math.Round(fraBenefit * (1m - reductionFraction), 2, MidpointRounding.AwayFromZero);
 
         var isChosenAgeSameAsFra = claimAge.TotalMonths == fullRetirementAge.TotalMonths;
+        var earliestClaimAge = Age.FromTotalMonths(Math.Min(claimAge.TotalMonths, fullRetirementAge.TotalMonths));
 
         var chosenAgeScenario = new ScenarioResult
         {
             ClaimAge = claimAge,
+            PlanningAge = planningAge,
             MonthlyBenefit = chosenAgeMonthlyBenefit,
             PaymentMonthsThroughPlanningAge = PaymentMonths(claimAge, planningAge),
+            AnnualCumulativeIncome = BuildAnnualCumulativeIncomePoints(earliestClaimAge, planningAge, claimAge, chosenAgeMonthlyBenefit),
         };
 
         var fraScenario = new ScenarioResult
         {
             ClaimAge = fullRetirementAge,
+            PlanningAge = planningAge,
             MonthlyBenefit = fraBenefit,
             PaymentMonthsThroughPlanningAge = PaymentMonths(fullRetirementAge, planningAge),
+            AnnualCumulativeIncome = BuildAnnualCumulativeIncomePoints(earliestClaimAge, planningAge, fullRetirementAge, fraBenefit),
         };
 
         Age? breakEvenAge = isChosenAgeSameAsFra
@@ -75,6 +80,39 @@ public static class SocialSecurityBenefitCalculator
 
     private static decimal CumulativeAt(int atTotalMonths, Age claimAge, decimal monthlyBenefit) =>
         monthlyBenefit * Math.Max(atTotalMonths - claimAge.TotalMonths, 0);
+
+    /// <summary>
+    /// Builds an ordered annual cumulative-income series that begins at the earliest claim age
+    /// (or exact planning age when the two are the same), includes every annual milestone, and
+    /// appends the exact planning-age endpoint when it falls between milestone years.
+    /// </summary>
+    private static IReadOnlyList<AnnualCumulativeIncomePoint> BuildAnnualCumulativeIncomePoints(
+        Age projectionStartAge,
+        Age planningAge,
+        Age claimAge,
+        decimal monthlyBenefit)
+    {
+        var totalMonthsSet = new SortedSet<int> { projectionStartAge.TotalMonths };
+
+        var nextAnnualMilestone = (projectionStartAge.TotalMonths / 12) * 12 + 12;
+        while (nextAnnualMilestone <= planningAge.TotalMonths)
+        {
+            totalMonthsSet.Add(nextAnnualMilestone);
+            nextAnnualMilestone += 12;
+        }
+
+        totalMonthsSet.Add(planningAge.TotalMonths);
+
+        var points = new List<AnnualCumulativeIncomePoint>(totalMonthsSet.Count);
+        foreach (var totalMonths in totalMonthsSet)
+        {
+            var age = Age.FromTotalMonths(totalMonths);
+            var cumulativeIncome = CumulativeAt(totalMonths, claimAge, monthlyBenefit);
+            points.Add(new AnnualCumulativeIncomePoint(age, cumulativeIncome));
+        }
+
+        return points;
+    }
 
     /// <summary>
     /// Searches month-by-month, starting at full retirement age, for the first age at which

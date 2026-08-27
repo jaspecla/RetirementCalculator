@@ -41,10 +41,11 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.GetByText("Enter a monthly benefit at full retirement age greater than $0.")).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByText("Enter a claim age with whole years and 0-11 months.")).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByText("Enter a planning age with whole years and 0-11 months.")).ToBeVisibleAsync();
+        Assert.AreEqual(0, await _page.Locator("svg[role='img']").CountAsync());
     }
 
     [TestMethod]
-    public async Task SubmitValidForm_ShowsComparisonResults()
+    public async Task SubmitValidForm_ShowsComparisonResultsAndGraph()
     {
         await _page.GotoAsync(BrowserTestHost.BaseUrl);
 
@@ -60,8 +61,12 @@ public sealed class HomePageTests
         await ThrowIfBlazorFailedAsync();
 
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).ToBeVisibleAsync();
-        await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at chosen age");
-        await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at full retirement age");
+        await Assertions.Expect(_page.Locator("svg[role='img']")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.Locator(".graph-heading")).ToContainTextAsync("Annual cumulative income through planning age");
+        await Assertions.Expect(_page.Locator(".ss-comparison-table")).ToContainTextAsync("Claim at chosen age");
+        await Assertions.Expect(_page.Locator(".ss-comparison-table")).ToContainTextAsync("Claim at full retirement age");
+        await Assertions.Expect(_page.GetByText(new Regex(@"Your full retirement age \(FRA\) is 67\."))).ToBeVisibleAsync();
+        await Assertions.Expect(_page.Locator(".ss-comparison-table")).ToContainTextAsync("Cumulative total through planning age");
     }
 
     private async Task WaitForInteractiveFormAsync()

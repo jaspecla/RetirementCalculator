@@ -1,0 +1,252 @@
+@namespace RetirementCalculator.Web.Components
+@using System.Globalization
+@using RetirementCalculator.Domain.Models
+@{
+    var selectedSeries = SelectedSeries?.ToArray() ?? Array.Empty<ProjectionPoint>();
+    var fraSeries = FraSeries?.ToArray() ?? Array.Empty<ProjectionPoint>();
+    var allPoints = selectedSeries.Concat(fraSeries).ToArray();
+    var minAge = allPoints.Length > 0 ? allPoints.Min(point => point.Age.TotalMonths) : 0;
+    var maxAge = allPoints.Length > 0 ? allPoints.Max(point => point.Age.TotalMonths) : 0;
+    var minValue = allPoints.Length > 0 ? Math.Min(0m, allPoints.Min(point => point.CumulativeTotal)) : 0m;
+    var maxValue = allPoints.Length > 0 ? Math.Max(0m, allPoints.Max(point => point.CumulativeTotal)) : 0m;
+    var ageTicks = GetAgeTicks(minAge, maxAge);
+    var valueTicks = GetValueTicks(minValue, maxValue);
+    var description = GetEffectiveGraphDescription(minAge, maxAge, minValue, maxValue, selectedSeries, fraSeries);
+    var isCoincident = selectedSeries.SequenceEqual(fraSeries);
+    var selectedPolyline = BuildPolyline(selectedSeries, minAge, maxAge, minValue, maxValue);
+    var fraPolyline = BuildPolyline(fraSeries, minAge, maxAge, minValue, maxValue);
+}
+
+<figure class="cumulative-projection-figure">
+    <svg class="cumulative-projection-graph"
+         role="img"
+         aria-label="@GraphTitle"
+         viewBox="0 0 640 300"
+         preserveAspectRatio="xMidYMid meet"
+         aria-labelledby="@($"{TitleId} {DescId}")">
+        <title id="@TitleId">@GraphTitle</title>
+        <desc id="@DescId">@description</desc>
+
+        <line class="axis-line" x1="@ChartLeft" y1="@ChartBottom" x2="@ChartRight" y2="@ChartBottom" />
+        <line class="axis-line" x1="@ChartLeft" y1="@ChartTop" x2="@ChartLeft" y2="@ChartBottom" />
+
+        @foreach (var tick in ageTicks)
+        {
+           var x = MapXAxisPosition(tick * 12, minAge, maxAge);
+           <g class="axis-tick age-tick">
+               <line class="tick-line" x1="@x" y1="@ChartBottom" x2="@x" y2="@(ChartBottom + 6)" />
+               <text class="axis-tick-label age-tick-label" x="@x" y="@(ChartBottom + 18)" text-anchor="middle">@FormatAgeLabel(tick)</text>
+           </g>
+        }
+
+        @foreach (var tick in valueTicks)
+        {
+           var y = MapYAxisPosition(tick, minValue, maxValue);
+           <g class="axis-tick value-tick">
+               <line class="tick-line" x1="@(ChartLeft - 6)" y1="@y" x2="@ChartLeft" y2="@y" />
+               <text class="axis-tick-label value-tick-label" x="@(ChartLeft - 10)" y="@(y + 4)" text-anchor="end">@FormatCurrency(tick)</text>
+           </g>
+        }
+
+        <text class="axis-title x-axis-title" x="@(ChartLeft + ChartWidth / 2.0)" y="286" text-anchor="middle">Age</text>
+        <text class="axis-title y-axis-title" x="20" y="@(ChartTop + ChartHeight / 2.0)" text-anchor="middle" transform="rotate(-90 20 @(ChartTop + ChartHeight / 2.0))">Cumulative income</text>
+
+        <polyline class="cumulative-series selected-series" points="@selectedPolyline" stroke-dasharray="@GetDashPattern(isCoincident, isSelected: true)" />
+        <polyline class="cumulative-series fra-series" points="@fraPolyline" stroke-dasharray="@GetDashPattern(isCoincident, isSelected: false)" />
+    </svg>
+
+    <div class="cumulative-projection-legend" aria-label="Scenario legend">
+        <div class="legend-item">
+           <span class="legend-swatch selected-swatch" aria-hidden="true"></span>
+           <span>@SelectedSeriesLabel</span>
+        </div>
+        <div class="legend-item">
+           <span class="legend-swatch fra-swatch" aria-hidden="true"></span>
+           <span>@FraSeriesLabel</span>
+        </div>
+    </div>
+</figure>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<ProjectionPoint> SelectedSeries { get; set; } = Array.Empty<ProjectionPoint>();
+
+    [Parameter]
+    public IReadOnlyList<ProjectionPoint> FraSeries { get; set; } = Array.Empty<ProjectionPoint>();
+
+    [Parameter]
+    public string SelectedSeriesLabel { get; set; } = "Selected claim age";
+
+    [Parameter]
+    public string FraSeriesLabel { get; set; } = "Full retirement age";
+
+    [Parameter]
+    public string GraphTitle { get; set; } = "Cumulative Social Security income";
+
+    [Parameter]
+    public string GraphDescription { get; set; } = string.Empty;
+
+    private const int ChartLeft = 70;
+    private const int ChartTop = 30;
+    private const int ChartRight = 610;
+    private const int ChartBottom = 250;
+    private const int ChartWidth = ChartRight - ChartLeft;
+    private const int ChartHeight = ChartBottom - ChartTop;
+
+    private string TitleId => Slugify(SelectedSeriesLabel) + "-" + Slugify(FraSeriesLabel) + "-title";
+
+    private string DescId => Slugify(SelectedSeriesLabel) + "-" + Slugify(FraSeriesLabel) + "-desc";
+
+    private string GetEffectiveGraphDescription(int minAge, int maxAge, decimal minValue, decimal maxValue, IReadOnlyList<ProjectionPoint> selectedSeries, IReadOnlyList<ProjectionPoint> fraSeries)
+    {
+        if (!string.IsNullOrWhiteSpace(GraphDescription))
+        {
+           return GraphDescription;
+        }
+
+        if (selectedSeries.Count == 0 && fraSeries.Count == 0)
+        {
+           return "No cumulative income data is available for this comparison.";
+        }
+
+        var selectedLabel = string.IsNullOrWhiteSpace(SelectedSeriesLabel) ? "Selected claim age" : SelectedSeriesLabel;
+        var fraLabel = string.IsNullOrWhiteSpace(FraSeriesLabel) ? "Full retirement age" : FraSeriesLabel;
+        var firstAge = Math.Max(minAge, 0);
+        var lastAge = Math.Max(maxAge, firstAge);
+        var firstAgeDisplay = (int)Math.Floor(firstAge / 12d);
+        var lastAgeDisplay = (int)Math.Floor(lastAge / 12d);
+
+        var selectedTotal = selectedSeries.Count > 0 ? selectedSeries[^1].CumulativeTotal : 0m;
+        var fraTotal = fraSeries.Count > 0 ? fraSeries[^1].CumulativeTotal : 0m;
+
+        return $"Ages {FormatAgeLabel(firstAgeDisplay)} to {FormatAgeLabel(lastAgeDisplay)}. {selectedLabel} totals {FormatCurrency(selectedTotal)} by the end of the series. {fraLabel} totals {FormatCurrency(fraTotal)} by the end of the series.";
+    }
+
+    private static IReadOnlyList<int> GetAgeTicks(int minAge, int maxAge)
+    {
+        if (maxAge <= minAge)
+        {
+           var singleAge = (int)Math.Floor(minAge / 12d);
+           return singleAge > 0 ? new[] { singleAge } : new[] { 0 };
+        }
+
+        var minimumAge = (int)Math.Floor(minAge / 12d);
+        var maximumAge = (int)Math.Floor(maxAge / 12d);
+        var ageRange = Math.Max(maximumAge - minimumAge, 1);
+        var tickCount = Math.Min(5, Math.Max(2, ageRange + 1));
+        var ticks = new List<int>();
+
+        for (var index = 0; index < tickCount; index++)
+        {
+           var value = minimumAge + (int)Math.Round((ageRange * (double)index) / (tickCount - 1));
+           if (index == 0)
+           {
+               value = minimumAge;
+           }
+           else if (index == tickCount - 1)
+           {
+               value = maximumAge;
+           }
+
+           if (value < minimumAge)
+           {
+               value = minimumAge;
+           }
+
+           if (value > maximumAge)
+           {
+               value = maximumAge;
+           }
+
+           ticks.Add(value);
+        }
+
+        return ticks.Distinct().ToArray();
+    }
+
+    private static IReadOnlyList<decimal> GetValueTicks(decimal minValue, decimal maxValue)
+    {
+        if (maxValue <= minValue)
+        {
+           return new[] { minValue };
+        }
+
+        var ticks = new List<decimal>();
+        for (var index = 0; index <= 4; index++)
+        {
+           ticks.Add(minValue + ((maxValue - minValue) * index / 4m));
+        }
+
+        return ticks;
+    }
+
+    private string BuildPolyline(IReadOnlyList<ProjectionPoint> series, int minAge, int maxAge, decimal minValue, decimal maxValue)
+    {
+        if (series.Count == 0)
+        {
+           return string.Empty;
+        }
+
+        var points = new List<string>(series.Count);
+
+        foreach (var point in series)
+        {
+           var scaledX = MapXAxisPosition(point.Age.TotalMonths, minAge, maxAge);
+           var scaledY = MapYAxisPosition(point.CumulativeTotal, minValue, maxValue);
+           points.Add(FormatChartPoint(scaledX, scaledY));
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private static double MapXAxisPosition(int ageInMonths, int minAge, int maxAge)
+    {
+        if (maxAge <= minAge)
+        {
+           return ChartLeft + ChartWidth / 2d;
+        }
+
+        var ageRange = Math.Max(maxAge - minAge, 1);
+        return ChartLeft + ((ageInMonths - minAge) / (double)ageRange) * ChartWidth;
+    }
+
+    private static double MapYAxisPosition(decimal value, decimal minValue, decimal maxValue)
+    {
+        if (maxValue <= minValue)
+        {
+           return ChartBottom;
+        }
+
+        var valueRange = maxValue - minValue;
+        return ChartBottom - ((double)((value - minValue) / valueRange) * ChartHeight);
+    }
+
+    private static string FormatChartPoint(double x, double y)
+    {
+        var xLabel = x.ToString("0.##", CultureInfo.InvariantCulture);
+        var yLabel = y.ToString("0.##", CultureInfo.InvariantCulture);
+        return $"{xLabel},{yLabel}";
+    }
+
+    private static string FormatAgeLabel(int ageInYears)
+    {
+        return ageInYears.ToString(CultureInfo.InvariantCulture);
+    }
+
+    private static string FormatCurrency(decimal value) => value.ToString("C0", CultureInfo.GetCultureInfo("en-US"));
+
+    private static string GetDashPattern(bool isCoincident, bool isSelected) => isCoincident
+        ? (isSelected ? "0" : "8 7")
+        : "0";
+
+    private static string Slugify(string value)
+    {
+        var normalized = new string(value
+           .Trim()
+           .Where(ch => char.IsLetterOrDigit(ch) || ch == '-')
+           .ToArray())
+           .Trim('-');
+
+        return string.IsNullOrWhiteSpace(normalized) ? "graph" : normalized.ToLowerInvariant();
+    }
+}

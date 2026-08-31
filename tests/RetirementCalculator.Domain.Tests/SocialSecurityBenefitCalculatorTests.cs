@@ -120,4 +120,28 @@ public sealed class SocialSecurityBenefitCalculatorTests
         Assert.IsTrue(result.WaitingIncreaseAmount > 0m);
         Assert.IsTrue(result.WaitingIncreasePercent > 0m);
     }
+
+    [TestMethod]
+    public void Calculate_ProjectionSeries_AreOrderedAndEndpointConsistent()
+    {
+        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 69, planningMonths: 3);
+
+        var result = SocialSecurityBenefitCalculator.Calculate(input);
+
+        var chosenProjection = result.ChosenAgeScenario.ProjectionSeries;
+        var fraProjection = result.FullRetirementAgeScenario.ProjectionSeries;
+
+        Assert.IsTrue(chosenProjection.Count > 1);
+        Assert.IsTrue(chosenProjection.Zip(chosenProjection.Skip(1), (current, next) => current.Age.TotalMonths < next.Age.TotalMonths).All(x => x));
+        Assert.AreEqual(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge, chosenProjection[^1].CumulativeTotal);
+        Assert.AreEqual(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge, fraProjection[^1].CumulativeTotal);
+
+        foreach (var point in fraProjection.Where(point => point.Age.TotalMonths < result.FullRetirementAge.TotalMonths))
+        {
+            Assert.AreEqual(0m, point.CumulativeTotal);
+        }
+
+        Assert.AreEqual(new Age(69, 3), chosenProjection[^1].Age);
+        Assert.AreEqual(new Age(69, 3), fraProjection[^1].Age);
+    }
 }

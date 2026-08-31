@@ -62,6 +62,7 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at chosen age");
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at full retirement age");
+        await Assertions.Expect(_page.Locator("svg[role='img']")).ToBeVisibleAsync();
     }
 
     private async Task WaitForInteractiveFormAsync()

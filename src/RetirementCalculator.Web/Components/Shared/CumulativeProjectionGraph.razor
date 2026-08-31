@@ -114,7 +114,7 @@
         var firstAge = Math.Max(minAge, 0);
         var lastAge = Math.Max(maxAge, firstAge);
         var firstAgeDisplay = (int)Math.Floor(firstAge / 12d);
-        var lastAgeDisplay = (int)Math.Ceiling(lastAge / 12d);
+        var lastAgeDisplay = (int)Math.Floor(lastAge / 12d);
 
         var selectedTotal = selectedSeries.Count > 0 ? selectedSeries[^1].CumulativeTotal : 0m;
         var fraTotal = fraSeries.Count > 0 ? fraSeries[^1].CumulativeTotal : 0m;
@@ -126,11 +126,12 @@
     {
         if (maxAge <= minAge)
         {
-           return minAge > 0 ? new[] { minAge } : new[] { 0 };
+           var singleAge = (int)Math.Floor(minAge / 12d);
+           return singleAge > 0 ? new[] { singleAge } : new[] { 0 };
         }
 
         var minimumAge = (int)Math.Floor(minAge / 12d);
-        var maximumAge = (int)Math.Ceiling(maxAge / 12d);
+        var maximumAge = (int)Math.Floor(maxAge / 12d);
         var ageRange = Math.Max(maximumAge - minimumAge, 1);
         var tickCount = Math.Min(5, Math.Max(2, ageRange + 1));
         var ticks = new List<int>();

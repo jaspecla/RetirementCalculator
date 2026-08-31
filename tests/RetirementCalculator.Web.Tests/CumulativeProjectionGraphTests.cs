@@ -1,3 +1,4 @@
+using System.Globalization;
 using Bunit;
 using RetirementCalculator.Domain.Models;
 using RetirementCalculator.Web.Components;
@@ -45,6 +46,31 @@ public sealed class CumulativeProjectionGraphTests
     }
 
     [TestMethod]
+    public void Render_WithPartialYearEndpoint_UsesFinalPlottedAgeInTicksAndDescription()
+    {
+        using var ctx = new BunitContext();
+
+        var selected = CreateSeriesToAge(62, 1200m, new Age(69, 3));
+        var fra = CreateSeriesToAge(67, 2000m, new Age(69, 3));
+
+        var cut = ctx.Render<CumulativeProjectionGraph>(parameters => parameters
+            .Add(p => p.SelectedSeries, selected)
+            .Add(p => p.FraSeries, fra)
+            .Add(p => p.SelectedSeriesLabel, "Claim at age 62")
+            .Add(p => p.FraSeriesLabel, "Claim at full retirement age"));
+
+        var description = cut.Find("desc").TextContent;
+        var ageTickXCoordinates = cut.FindAll("text.age-tick-label")
+            .Select(tick => double.Parse(tick.GetAttribute("x") ?? "0", CultureInfo.InvariantCulture))
+            .ToList();
+
+        Assert.IsTrue(ageTickXCoordinates.All(x => x >= 70d && x <= 610d));
+        Assert.IsTrue(description.Contains("Ages 62 to 69", StringComparison.Ordinal));
+        Assert.IsFalse(description.Contains("Ages 62 to 70", StringComparison.Ordinal));
+        Assert.IsFalse(description.Contains("70.", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
     public void Render_WithCoincidentSeries_UsesDistinctDashPatternsToKeepBothVisible()
     {
         using var ctx = new BunitContext();
@@ -63,6 +89,26 @@ public sealed class CumulativeProjectionGraphTests
         Assert.IsTrue(polylines.Any(line => line.GetAttribute("stroke-dasharray") == "8 7"));
         Assert.IsTrue(cut.Markup.Contains("Claim at FRA", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Wait until FRA", StringComparison.Ordinal));
+    }
+
+    private static IReadOnlyList<ProjectionPoint> CreateSeriesToAge(int claimAge, decimal benefit, Age endAge)
+    {
+        var points = new List<ProjectionPoint>();
+        var startMonth = claimAge * 12;
+        var endMonth = endAge.TotalMonths;
+
+        for (var totalMonth = startMonth; totalMonth <= endMonth; totalMonth += 12)
+        {
+            var age = Age.FromTotalMonths(totalMonth);
+            var cumulative = benefit * Math.Max(totalMonth - startMonth, 0);
+            points.Add(new ProjectionPoint(age, cumulative));
+        }
+
+        var finalAge = endAge;
+        var finalCumulative = benefit * Math.Max(endMonth - startMonth, 0);
+        points.Add(new ProjectionPoint(finalAge, finalCumulative));
+
+        return points.DistinctBy(point => point.Age.TotalMonths).ToList();
     }
 
     private static IReadOnlyList<ProjectionPoint> CreateSeries(int claimAge, decimal benefit, int years)

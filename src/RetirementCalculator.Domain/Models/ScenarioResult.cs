@@ -35,8 +35,6 @@ public sealed class OrderedCumulativeSeries : IReadOnlyList<ProjectionPoint>
 
     public ProjectionPoint FinalPoint => _points[^1];
 
-    public decimal FinalCumulativeTotal => FinalPoint.CumulativeTotal;
-
     public IEnumerator<ProjectionPoint> GetEnumerator() => _points.GetEnumerator();
 
     IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
@@ -63,19 +61,4 @@ public sealed class ScenarioResult
 
     /// <summary>Chronologically ordered cumulative values for this scenario.</summary>
     public required OrderedCumulativeSeries ProjectionSeries { get; init; }
-
-    /// <summary>Alias for <see cref="ProjectionSeries"/> to keep graphing code explicit.</summary>
-    public IReadOnlyList<ProjectionPoint> ProjectionPoints => ProjectionSeries;
-
-    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
-    public OrderedCumulativeSeries CumulativeProjection => ProjectionSeries;
-
-    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
-    public IReadOnlyList<ProjectionPoint> CumulativeProjectionPoints => ProjectionSeries;
-
-    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
-    public IReadOnlyList<ProjectionPoint> CumulativeSeries => ProjectionSeries;
-
-    /// <summary>The final cumulative projection point for the scenario.</summary>
-    public ProjectionPoint FinalProjectionPoint => ProjectionSeries.FinalPoint;
 }

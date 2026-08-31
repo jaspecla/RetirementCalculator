@@ -13,9 +13,22 @@
     background: linear-gradient(180deg, #f8fafc 0%, #eef5ff 100%);
 }
 
-.axis-line {
+.axis-line,
+.tick-line {
     stroke: #6b7280;
     stroke-width: 1.2;
+}
+
+.axis-tick-label,
+.axis-title {
+    fill: #374151;
+    font-size: 11px;
+    font-weight: 500;
+}
+
+.axis-title {
+    font-size: 12px;
+    font-weight: 600;
 }
 
 .cumulative-series {
@@ -63,6 +76,11 @@
 }
 
 @media (max-width: 40rem) {
+    .axis-tick-label,
+    .axis-title {
+        font-size: 10px;
+    }
+
     .cumulative-projection-legend {
         gap: 0.5rem 1rem;
         font-size: 0.9rem;

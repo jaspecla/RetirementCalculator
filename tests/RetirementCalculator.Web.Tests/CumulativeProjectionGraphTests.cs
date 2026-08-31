@@ -22,9 +22,23 @@ public sealed class CumulativeProjectionGraphTests
             .Add(p => p.FraSeriesLabel, "Claim at full retirement age"));
 
         var svg = cut.Find("svg[role='img']");
+        var description = cut.Find("desc").TextContent;
+        var ageTicks = cut.FindAll("text.age-tick-label");
+        var currencyTicks = cut.FindAll("text.value-tick-label");
+
         Assert.IsNotNull(svg);
         Assert.IsNotNull(svg.GetAttribute("aria-labelledby"));
         Assert.AreEqual("Cumulative Social Security income", cut.Find("title").TextContent.Trim());
+        Assert.IsTrue(ageTicks.Any(tick => tick.TextContent.Trim() == "62"));
+        Assert.IsTrue(ageTicks.Any(tick => tick.TextContent.Trim() == "72"));
+        Assert.IsTrue(currencyTicks.Count > 0);
+        Assert.IsTrue(currencyTicks.Any(tick => tick.TextContent.Contains('$')));
+        Assert.AreEqual("Age", cut.Find("text.x-axis-title").TextContent.Trim());
+        Assert.AreEqual("Cumulative income", cut.Find("text.y-axis-title").TextContent.Trim());
+        Assert.IsTrue(description.Contains("Ages 62 to 72", StringComparison.Ordinal));
+        Assert.IsTrue(description.Contains("Claim at age 62", StringComparison.Ordinal));
+        Assert.IsTrue(description.Contains("Claim at full retirement age", StringComparison.Ordinal));
+        Assert.IsTrue(description.Contains("$", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim at age 62", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim at full retirement age", StringComparison.Ordinal));
         Assert.AreEqual(2, cut.FindAll("polyline").Count);

@@ -1,0 +1,117 @@
+@namespace RetirementCalculator.Web.Components
+@using System.Globalization
+@using RetirementCalculator.Domain.Models
+@{
+    var selectedSeries = SelectedSeries.ToArray();
+    var fraSeries = FraSeries.ToArray();
+    var allPoints = selectedSeries.Concat(fraSeries).ToArray();
+    var minAge = allPoints.Length > 0 ? allPoints.Min(point => point.Age.TotalMonths) : 0;
+    var maxAge = allPoints.Length > 0 ? allPoints.Max(point => point.Age.TotalMonths) : 0;
+    var minValue = allPoints.Length > 0 ? Math.Min(0m, allPoints.Min(point => point.CumulativeTotal)) : 0m;
+    var maxValue = allPoints.Length > 0 ? Math.Max(0m, allPoints.Max(point => point.CumulativeTotal)) : 0m;
+    var isCoincident = selectedSeries.SequenceEqual(fraSeries);
+    var selectedPolyline = BuildPolyline(selectedSeries, minAge, maxAge, minValue, maxValue);
+    var fraPolyline = BuildPolyline(fraSeries, minAge, maxAge, minValue, maxValue);
+}
+
+<figure class="cumulative-projection-figure">
+    <svg class="cumulative-projection-graph"
+         role="img"
+         viewBox="0 0 640 300"
+         preserveAspectRatio="xMidYMid meet"
+         aria-labelledby="@($"{TitleId} {DescId}")">
+        <title id="@TitleId">@GraphTitle</title>
+        <desc id="@DescId">@GraphDescription</desc>
+
+        <line class="axis-line" x1="70" y1="250" x2="610" y2="250" />
+        <line class="axis-line" x1="70" y1="30" x2="70" y2="250" />
+
+        <polyline class="cumulative-series selected-series" points="@selectedPolyline" stroke-dasharray="@GetDashPattern(isCoincident, isSelected: true)" />
+        <polyline class="cumulative-series fra-series" points="@fraPolyline" stroke-dasharray="@GetDashPattern(isCoincident, isSelected: false)" />
+    </svg>
+
+    <div class="cumulative-projection-legend" aria-label="Scenario legend">
+        <div class="legend-item">
+            <span class="legend-swatch selected-swatch" aria-hidden="true"></span>
+            <span>@SelectedSeriesLabel</span>
+        </div>
+        <div class="legend-item">
+            <span class="legend-swatch fra-swatch" aria-hidden="true"></span>
+            <span>@FraSeriesLabel</span>
+        </div>
+    </div>
+</figure>
+
+@code {
+    [Parameter]
+    public IReadOnlyList<ProjectionPoint> SelectedSeries { get; set; } = Array.Empty<ProjectionPoint>();
+
+    [Parameter]
+    public IReadOnlyList<ProjectionPoint> FraSeries { get; set; } = Array.Empty<ProjectionPoint>();
+
+    [Parameter]
+    public string SelectedSeriesLabel { get; set; } = "Selected claim age";
+
+    [Parameter]
+    public string FraSeriesLabel { get; set; } = "Full retirement age";
+
+    [Parameter]
+    public string GraphTitle { get; set; } = "Cumulative Social Security income";
+
+    [Parameter]
+    public string GraphDescription { get; set; } = "Cumulative Social Security income through each retirement year for the selected claiming-age scenario and the full-retirement-age scenario.";
+
+    private const int ChartLeft = 70;
+    private const int ChartTop = 30;
+    private const int ChartRight = 610;
+    private const int ChartBottom = 250;
+    private const int ChartWidth = ChartRight - ChartLeft;
+    private const int ChartHeight = ChartBottom - ChartTop;
+
+    private string TitleId => Slugify(SelectedSeriesLabel) + "-" + Slugify(FraSeriesLabel) + "-title";
+
+    private string DescId => Slugify(SelectedSeriesLabel) + "-" + Slugify(FraSeriesLabel) + "-desc";
+
+    private string BuildPolyline(IReadOnlyList<ProjectionPoint> series, int minAge, int maxAge, decimal minValue, decimal maxValue)
+    {
+        if (series.Count == 0)
+        {
+            return string.Empty;
+        }
+
+        var ageRange = Math.Max(maxAge - minAge, 1);
+        var valueRange = Math.Max(maxValue - minValue, 1m);
+        var points = new List<string>(series.Count);
+
+        foreach (var point in series)
+        {
+            var scaledX = ChartLeft + ((point.Age.TotalMonths - minAge) / (double)ageRange) * ChartWidth;
+            var scaledY = ChartBottom - ((double)((point.CumulativeTotal - minValue) / valueRange) * ChartHeight);
+            points.Add(FormatChartPoint(scaledX, scaledY));
+        }
+
+        return string.Join(" ", points);
+    }
+
+    private static string FormatChartPoint(double x, double y)
+    {
+        var xLabel = x.ToString("0.##", CultureInfo.InvariantCulture);
+        var yLabel = y.ToString("0.##", CultureInfo.InvariantCulture);
+        return $"{xLabel},{yLabel}";
+    }
+
+    private static string GetDashPattern(bool isCoincident, bool isSelected) => isCoincident
+        ? (isSelected ? "0" : "8 7")
+        : "0";
+
+    private static string Slugify(string value)
+    {
+        var normalized = new string(value
+            .Trim()
+            .Where(ch => char.IsLetterOrDigit(ch) || ch == '-')
+            .ToArray())
+            .Trim('-');
+
+        return string.IsNullOrWhiteSpace(normalized) ? "graph" : normalized.ToLowerInvariant();
+    }
+}

@@ -47,6 +47,7 @@ public static class SocialSecurityBenefitCalculator
             ClaimAge = claimAge,
             MonthlyBenefit = chosenAgeMonthlyBenefit,
             PaymentMonthsThroughPlanningAge = PaymentMonths(claimAge, planningAge),
+            ProjectionSeries = BuildProjectionSeries(claimAge, claimAge, chosenAgeMonthlyBenefit, planningAge),
         };
 
         var fraScenario = new ScenarioResult
@@ -54,6 +55,7 @@ public static class SocialSecurityBenefitCalculator
             ClaimAge = fullRetirementAge,
             MonthlyBenefit = fraBenefit,
             PaymentMonthsThroughPlanningAge = PaymentMonths(fullRetirementAge, planningAge),
+            ProjectionSeries = BuildProjectionSeries(claimAge, fullRetirementAge, fraBenefit, planningAge),
         };
 
         Age? breakEvenAge = isChosenAgeSameAsFra
@@ -68,6 +70,25 @@ public static class SocialSecurityBenefitCalculator
             IsChosenAgeSameAsFullRetirementAge = isChosenAgeSameAsFra,
             BreakEvenAge = breakEvenAge,
         };
+    }
+
+    private static OrderedCumulativeSeries BuildProjectionSeries(Age projectionStartAge, Age claimAge, decimal monthlyBenefit, Age planningAge)
+    {
+        var points = new List<ProjectionPoint>();
+
+        for (var ageTotalMonths = projectionStartAge.TotalMonths; ageTotalMonths <= planningAge.TotalMonths; ageTotalMonths += 12)
+        {
+            var age = Age.FromTotalMonths(ageTotalMonths);
+            var cumulative = CumulativeAt(ageTotalMonths, claimAge, monthlyBenefit);
+            points.Add(new ProjectionPoint(age, cumulative));
+        }
+
+        if (planningAge.TotalMonths > points[^1].Age.TotalMonths)
+        {
+            points.Add(new ProjectionPoint(planningAge, CumulativeAt(planningAge.TotalMonths, claimAge, monthlyBenefit)));
+        }
+
+        return new OrderedCumulativeSeries(points);
     }
 
     private static int PaymentMonths(Age claimAge, Age planningAge) =>

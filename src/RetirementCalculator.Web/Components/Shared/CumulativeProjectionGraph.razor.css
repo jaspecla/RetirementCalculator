@@ -1,0 +1,70 @@
+.cumulative-projection-figure {
+    margin: 1.5rem 0 0;
+    max-width: 60rem;
+}
+
+.cumulative-projection-graph {
+    display: block;
+    width: 100%;
+    min-height: 16rem;
+    height: auto;
+    border: 1px solid #d0d0d0;
+    border-radius: 0.5rem;
+    background: linear-gradient(180deg, #f8fafc 0%, #eef5ff 100%);
+}
+
+.axis-line {
+    stroke: #6b7280;
+    stroke-width: 1.2;
+}
+
+.cumulative-series {
+    fill: none;
+    stroke-width: 3;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.selected-series {
+    stroke: #0b5ed7;
+}
+
+.fra-series {
+    stroke: #1d9d74;
+}
+
+.cumulative-projection-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 1rem 1.5rem;
+    margin-top: 0.75rem;
+    font-size: 0.95rem;
+}
+
+.legend-item {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.legend-swatch {
+    display: inline-block;
+    width: 0.9rem;
+    height: 0.9rem;
+    border-radius: 999px;
+}
+
+.selected-swatch {
+    background: #0b5ed7;
+}
+
+.fra-swatch {
+    background: #1d9d74;
+}
+
+@media (max-width: 40rem) {
+    .cumulative-projection-legend {
+        gap: 0.5rem 1rem;
+        font-size: 0.9rem;
+    }
+}

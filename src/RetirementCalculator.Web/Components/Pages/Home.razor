@@ -103,62 +103,74 @@
             </p>
         }
 
-        <div class="ss-table-wrapper">
-            <table class="ss-comparison-table">
-                <caption class="visually-hidden">Side-by-side comparison of claiming at your chosen age versus at full retirement age</caption>
-                <thead>
-                    <tr>
-                        <th scope="col">&nbsp;</th>
-                        <th scope="col">Claim at chosen age</th>
-                        <th scope="col">Claim at full retirement age</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <tr>
-                        <th scope="row">Age at claim</th>
-                        <td>@result.ChosenAgeScenario.ClaimAge</td>
-                        <td>@result.FullRetirementAgeScenario.ClaimAge</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Monthly benefit</th>
-                        <td>@FormatCurrency(result.ChosenAgeScenario.MonthlyBenefit)</td>
-                        <td>@FormatCurrency(result.FullRetirementAgeScenario.MonthlyBenefit)</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Annual benefit</th>
-                        <td>@FormatCurrency(result.ChosenAgeScenario.AnnualBenefit)</td>
-                        <td>@FormatCurrency(result.FullRetirementAgeScenario.AnnualBenefit)</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Payment months through planning age</th>
-                        <td>@result.ChosenAgeScenario.PaymentMonthsThroughPlanningAge</td>
-                        <td>@result.FullRetirementAgeScenario.PaymentMonthsThroughPlanningAge</td>
-                    </tr>
-                    <tr>
-                        <th scope="row">Cumulative total through planning age</th>
-                        <td>@FormatCurrency(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge)</td>
-                        <td>@FormatCurrency(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge)</td>
-                    </tr>
-                </tbody>
-            </table>
-        </div>
+        <div class="ss-results-grid">
+            <div class="ss-results-column">
+                <div class="ss-table-wrapper">
+                    <table class="ss-comparison-table">
+                        <caption class="visually-hidden">Side-by-side comparison of claiming at your chosen age versus at full retirement age</caption>
+                        <thead>
+                            <tr>
+                                <th scope="col">&nbsp;</th>
+                                <th scope="col">Claim at chosen age</th>
+                                <th scope="col">Claim at full retirement age</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <th scope="row">Age at claim</th>
+                                <td>@result.ChosenAgeScenario.ClaimAge</td>
+                                <td>@result.FullRetirementAgeScenario.ClaimAge</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Monthly benefit</th>
+                                <td>@FormatCurrency(result.ChosenAgeScenario.MonthlyBenefit)</td>
+                                <td>@FormatCurrency(result.FullRetirementAgeScenario.MonthlyBenefit)</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Annual benefit</th>
+                                <td>@FormatCurrency(result.ChosenAgeScenario.AnnualBenefit)</td>
+                                <td>@FormatCurrency(result.FullRetirementAgeScenario.AnnualBenefit)</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Payment months through planning age</th>
+                                <td>@result.ChosenAgeScenario.PaymentMonthsThroughPlanningAge</td>
+                                <td>@result.FullRetirementAgeScenario.PaymentMonthsThroughPlanningAge</td>
+                            </tr>
+                            <tr>
+                                <th scope="row">Cumulative total through planning age</th>
+                                <td>@FormatCurrency(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge)</td>
+                                <td>@FormatCurrency(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge)</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
 
-        <ul class="ss-summary-list">
-            <li>Waiting increase: @FormatCurrency(result.WaitingIncreaseAmount) per month
-                (@FormatPercent(result.WaitingIncreasePercent))</li>
-            <li>
-                Cumulative difference through planning age:
-                @FormatCurrency(result.CumulativeDifferenceAtPlanningAge)
-                (@(result.CumulativeDifferenceAtPlanningAge >= 0 ? "favors waiting for full retirement age" : "favors claiming at your chosen age"))
-            </li>
-            @if (result.BreakEvenAge is { } breakEvenAge)
-            {
-                <li>First break-even age (waiting catches up in total dollars): @breakEvenAge</li>
-            }
-            else if (!result.IsChosenAgeSameAsFullRetirementAge)
-            {
-                <li>No break-even age was found within the calculator's search horizon.</li>
-            }
-        </ul>
+                <ul class="ss-summary-list">
+                    <li>Waiting increase: @FormatCurrency(result.WaitingIncreaseAmount) per month
+                        (@FormatPercent(result.WaitingIncreasePercent))</li>
+                    <li>
+                        Cumulative difference through planning age:
+                        @FormatCurrency(result.CumulativeDifferenceAtPlanningAge)
+                        (@(result.CumulativeDifferenceAtPlanningAge >= 0 ? "favors waiting for full retirement age" : "favors claiming at your chosen age"))
+                    </li>
+                    @if (result.BreakEvenAge is { } breakEvenAge)
+                    {
+                        <li>First break-even age (waiting catches up in total dollars): @breakEvenAge</li>
+                    }
+                    else if (!result.IsChosenAgeSameAsFullRetirementAge)
+                    {
+                        <li>No break-even age was found within the calculator's search horizon.</li>
+                    }
+                </ul>
+            </div>
+
+            <div class="ss-results-graph-panel">
+                <CumulativeProjectionGraph
+                    SelectedSeries="result.ChosenAgeScenario.CumulativeProjectionPoints"
+                    FraSeries="result.FullRetirementAgeScenario.CumulativeProjectionPoints"
+                    SelectedSeriesLabel="Claim at chosen age"
+                    FraSeriesLabel="Claim at full retirement age" />
+            </div>
+        </div>
     </section>
 }

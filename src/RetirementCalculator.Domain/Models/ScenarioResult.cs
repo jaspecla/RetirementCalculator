@@ -1,4 +1,46 @@
+using System.Collections;
+
 namespace RetirementCalculator.Domain.Models;
+
+/// <summary>
+/// A single cumulative total point for a Social Security projection.
+/// </summary>
+public readonly record struct ProjectionPoint(Age Age, decimal CumulativeTotal);
+
+/// <summary>
+/// Chronologically ordered projection points representing cumulative nominal dollars received
+/// through a series of ages, including annual points and a final partial-year point when needed.
+/// </summary>
+public sealed class OrderedCumulativeSeries : IReadOnlyList<ProjectionPoint>
+{
+    private readonly IReadOnlyList<ProjectionPoint> _points;
+
+    public OrderedCumulativeSeries(IEnumerable<ProjectionPoint> points)
+    {
+        ArgumentNullException.ThrowIfNull(points);
+
+        _points = points
+            .OrderBy(point => point.Age.TotalMonths)
+            .ToArray();
+
+        if (_points.Count == 0)
+        {
+            throw new ArgumentException("Projection series cannot be empty.", nameof(points));
+        }
+    }
+
+    public ProjectionPoint this[int index] => _points[index];
+
+    public int Count => _points.Count;
+
+    public ProjectionPoint FinalPoint => _points[^1];
+
+    public decimal FinalCumulativeTotal => FinalPoint.CumulativeTotal;
+
+    public IEnumerator<ProjectionPoint> GetEnumerator() => _points.GetEnumerator();
+
+    IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
+}
 
 /// <summary>
 /// Projected results for a single claiming age, used to build a side-by-side comparison.
@@ -18,4 +60,22 @@ public sealed class ScenarioResult
 
     /// <summary>Total nominal dollars received from claiming through the planning age.</summary>
     public decimal CumulativeTotalThroughPlanningAge => MonthlyBenefit * PaymentMonthsThroughPlanningAge;
+
+    /// <summary>Chronologically ordered cumulative values for this scenario.</summary>
+    public required OrderedCumulativeSeries ProjectionSeries { get; init; }
+
+    /// <summary>Alias for <see cref="ProjectionSeries"/> to keep graphing code explicit.</summary>
+    public IReadOnlyList<ProjectionPoint> ProjectionPoints => ProjectionSeries;
+
+    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
+    public OrderedCumulativeSeries CumulativeProjection => ProjectionSeries;
+
+    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
+    public IReadOnlyList<ProjectionPoint> CumulativeProjectionPoints => ProjectionSeries;
+
+    /// <summary>Alias for <see cref="ProjectionSeries"/>.</summary>
+    public IReadOnlyList<ProjectionPoint> CumulativeSeries => ProjectionSeries;
+
+    /// <summary>The final cumulative projection point for the scenario.</summary>
+    public ProjectionPoint FinalProjectionPoint => ProjectionSeries.FinalPoint;
 }

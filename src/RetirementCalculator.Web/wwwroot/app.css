@@ -126,6 +126,18 @@ input[aria-invalid="true"] {
     max-width: 60rem;
 }
 
+.ss-results-grid {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1fr);
+    gap: 1.5rem 2rem;
+    align-items: start;
+}
+
+.ss-results-column,
+.ss-results-graph-panel {
+    min-width: 0;
+}
+
 .ss-table-wrapper {
     overflow-x: auto;
 }

@@ -39,13 +39,30 @@ public sealed class HomeComponentTests
         SetValidInputs(cut);
         cut.Find("form").Submit();
         Assert.IsTrue(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("Cumulative Social Security income", StringComparison.Ordinal));
 
         // Now make the claim age invalid (below the minimum of 62) and resubmit.
         cut.Find("#claimAgeYears").Input(45);
         cut.Find("form").Submit();
 
         Assert.IsFalse(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsFalse(cut.Markup.Contains("Cumulative Social Security income", StringComparison.Ordinal));
         Assert.IsTrue(cut.Markup.Contains("Claim age must be at least 62 years.", StringComparison.Ordinal));
+    }
+
+    [TestMethod]
+    public void Submit_WithAllValidInputs_RendersResultsAndGraphFromCurrentProjectionData()
+    {
+        using var ctx = CreateContext();
+        var cut = ctx.Render<Home>();
+
+        SetValidInputs(cut);
+        cut.Find("form").Submit();
+
+        Assert.IsTrue(cut.Markup.Contains("<h2>Results</h2>", StringComparison.Ordinal));
+        Assert.IsTrue(cut.Markup.Contains("Cumulative Social Security income", StringComparison.Ordinal));
+        Assert.AreEqual(0, cut.FindAll(".field-error").Count);
+        Assert.IsTrue(cut.FindAll("svg[role='img']").Count > 0);
     }
 
     [TestMethod]

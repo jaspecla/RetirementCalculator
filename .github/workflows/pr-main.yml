@@ -8,6 +8,9 @@ on:
       - src/**
       - tests/**
       - .github/workflows/pr-main.yml
+      - .github/workflows/implement-accepted-plan.*
+      - .github/workflows/resume-implementation.yml
+      - .github/scripts/implementation-checkpoint.cjs
 
 permissions:
   contents: read
@@ -32,6 +35,11 @@ jobs:
           cache-dependency-path: |
             **/*.csproj
             **/packages.lock.json
+
+      - name: Setup Node for workflow tests
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
 
       - name: Restore dependencies
         run: dotnet restore RetirementCalculator.slnx

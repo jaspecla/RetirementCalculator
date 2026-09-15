@@ -1,0 +1,48 @@
+name: Resume Implementation
+
+on:
+  workflow_run:
+    workflows: [Implement Accepted Plan]
+    types: [completed]
+
+permissions:
+  actions: write
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: resume-implementation-${{ github.event.workflow_run.id }}
+  cancel-in-progress: false
+
+jobs:
+  resume:
+    if: >-
+      github.event.workflow_run.run_attempt < 3 &&
+      contains(fromJSON('["success", "failure", "timed_out"]'), github.event.workflow_run.conclusion)
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout trusted controller
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+          persist-credentials: false
+      - name: Download implementation checkpoint
+        id: download
+        continue-on-error: true
+        uses: actions/download-artifact@v8
+        with:
+          name: implementation-checkpoint-${{ github.event.workflow_run.run_attempt }}
+          path: ${{ runner.temp }}/implementation-restore
+          github-token: ${{ github.token }}
+          run-id: ${{ github.event.workflow_run.id }}
+      - name: Validate checkpoint and request continuation
+        if: steps.download.outcome == 'success'
+        uses: actions/github-script@v9
+        with:
+          script: |
+            await require('./.github/scripts/implementation-checkpoint.cjs').retry({ github, context, core });
+      - name: Explain missing checkpoint
+        if: steps.download.outcome != 'success'
+        run: echo 'No checkpoint could be downloaded. Inspect the implementation run before starting a new dispatch.' >> "$GITHUB_STEP_SUMMARY"

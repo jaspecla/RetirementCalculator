@@ -110,9 +110,9 @@ safe-outputs:
             jq -n --arg body "$plan" '{body: $body}' \
               | gh api "repos/$GH_REPO/issues/$pr_number/comments" --method POST --input - >/dev/null
     update-plan-comment:
-      description: Replace the first plan comment on the triggering draft pull request after checking its identity and revision.
+      description: Replace the first plan comment on the triggering draft pull request after checking its identity and revision, then post a confirmation.
       runs-on: ubuntu-latest
-      output: Existing implementation plan comment updated in place.
+      output: Existing implementation plan comment updated in place and confirmed in a pull request comment.
       inputs:
         plan:
           description: Complete revised implementation plan in Markdown.
@@ -174,6 +174,12 @@ safe-outputs:
 
             jq -n --arg body "$plan" '{body: $body}' \
               | gh api "repos/$GH_REPO/issues/comments/$comment_id" --method PATCH --input - >/dev/null
+
+            pr_url="$GITHUB_SERVER_URL/$GH_REPO/pull/$pr_number"
+            confirmation="<!-- plan-ready-issue:revision-confirmation -->
+            Updated the [implementation plan]($pr_url#issuecomment-$comment_id) to enact the changes requested in [your comment]($pr_url#issuecomment-$trigger_comment_id)."
+            jq -n --arg body "$confirmation" '{body: $body}' \
+              | gh api "repos/$GH_REPO/issues/$pr_number/comments" --method POST --input - >/dev/null
   noop:
 ---
 
@@ -193,10 +199,10 @@ For `issue_comment` events:
 
 1. Fetch the triggering pull request. Require an open draft pull request in this repository, a same-repository head branch matching `plan/issue-<issue-number>-<run-id>`, a title beginning with `Plan #`, and no `plan_accepted` label. Otherwise use `noop`.
 2. Read the first pull request conversation comment and record its exact `updated_at` value. Require the planner's complete plan format, authorship matching the pull request creator, and a `Closes #<issue-number>` source reference matching the head branch. Fetch that source issue, not the triggering pull request number as an issue specification. If the plan is absent or ambiguous, use `noop`; never create a replacement pull request or a new plan comment.
-3. Read all pull request conversation comments, paginating as needed, and identify the triggering comment by its event ID. Ignore comments by bots and events on the plan comment itself, including edits made by a user token. If the triggering comment is deleted, stale compared with its current version, unrelated to the plan, merely acknowledges or approves it, or contains no actionable revision instructions, use `noop`.
+3. Read all pull request conversation comments, paginating as needed, and identify the triggering comment by its event ID. Ignore comments by bots, confirmation comments containing `<!-- plan-ready-issue:revision-confirmation -->`, and events on the plan comment itself, including edits made by a user token. If the triggering comment is deleted, stale compared with its current version, unrelated to the plan, merely acknowledges or approves it, or contains no actionable revision instructions, use `noop`.
 4. Use the current plan and discussion as context to apply the triggering comment's requested changes. Preserve previous revisions and every source-issue acceptance criterion; do not replay older instructions that later comments superseded. If overlapping runs skipped intermediate feedback, include outstanding compatible revision requests from the discussion. If instructions conflict, materially expand the source issue's scope, or require inventing requirements, use `noop` with a concise blocker.
 5. Produce the complete revised plan in the same required format, preserving the source issue reference and unchanged sections. If the requested changes are already reflected in the current plan, use `noop`.
-6. Call `update_plan_comment` exactly once with `plan` set to the complete revised Markdown plan and `expected_updated_at` set to the first comment's recorded timestamp. This edits the original plan comment in place. Never call `create_plan_pull_request` on a comment event. Do not post a reply, change the pull request body, add labels, or implement code.
+6. Call `update_plan_comment` exactly once with `plan` set to the complete revised Markdown plan and `expected_updated_at` set to the first comment's recorded timestamp. This edits the original plan comment in place and, only after the edit succeeds, posts a confirmation comment linking to the request and revised plan. Never call `create_plan_pull_request` on a comment event. Do not post an additional reply, change the pull request body, add labels, or implement code. No-op runs must not post a confirmation.
 
 ## Create a plan for a ready issue
 

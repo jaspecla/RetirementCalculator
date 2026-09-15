@@ -43,6 +43,10 @@ network:
   allowed: [defaults, dotnet, playwright, storage.googleapis.com]
 safe-outputs:
   activation-comments: false
+  add-comment:
+    target: ${{ github.event.pull_request.number || github.event.inputs.pull_request_number }}
+    required-labels: [plan_accepted]
+    max: 1
   push-to-pull-request-branch:
     target: ${{ github.event.pull_request.number || github.event.inputs.pull_request_number }}
     required-labels: [plan_accepted]
@@ -65,7 +69,15 @@ Use the Issue Implementation Orchestrator's complete workflow and delegation con
 Choose the run mode from that evidence:
 
 - **Initial implementation**, when no independent review exists yet. Delegate the accepted work items sequentially where dependencies or file ownership overlap.
-- **Review repair**, when an independent review exists. Its `commit_id` must equal the pull request's current head SHA, and must also equal `${{ github.event.inputs.reviewed_head_sha }}` when that value is non-empty. If it does not, the findings are stale, so use `noop` and stop. Otherwise confirm each `Critical`, `High`, and `Medium` finding against the accepted plan and the current code, delegate only the confirmed ones, and ignore lower-severity suggestions. Never re-run already-satisfied plan items; a review-repair run that finds nothing left to change must use `noop`.
+- **Review repair**, when an independent review exists. Its `commit_id` must equal the pull request's current head SHA, and must also equal `${{ github.event.inputs.reviewed_head_sha }}` when that value is non-empty. If it does not, the findings are stale, so use `noop` and stop. Otherwise confirm each `Critical`, `High`, and `Medium` finding against the accepted plan and the current code, queue the review response below before delegating any repairs, delegate only the confirmed ones, and ignore lower-severity suggestions. Never re-run already-satisfied plan items; a review-repair run that finds nothing left to change must use `noop`.
+
+### Review response
+
+For an eligible review-repair run with confirmed fixes to make, call `add_comment` exactly once to queue a new top-level comment on the target pull request before delegating repairs. Safe outputs publish the comment after the agent finishes; do not claim it is already posted. Do not edit or replace the first-comment accepted plan or any previous response. This comment explains repairs within the accepted scope; it is not a new implementation plan or a request for plan approval.
+
+Use the heading `## Response to Independent Code Review`, link the authoritative review, and include its reviewed head SHA. For each confirmed blocking finding, give its severity and location, summarize the issue, explain the intended code change and its relationship to the accepted plan, and list the focused tests or validation that will verify the fix. Briefly explain any findings not being implemented because they are already satisfied, unconfirmed, out of scope, or below the blocking severity threshold. Describe proposed work, not completed fixes or passing checks.
+
+Do not queue this comment on an initial implementation run, when eligibility or review freshness checks fail, or when no confirmed repairs remain; preserve the existing `noop` behavior in those cases.
 
 Workers must edit and validate in the shared workflow workspace without committing or pushing.
 

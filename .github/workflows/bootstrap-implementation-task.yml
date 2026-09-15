@@ -1,0 +1,47 @@
+name: Bootstrap Implementation Task
+
+on:
+  issues:
+    types: [labeled]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: Existing implementation_ready sub-issue to bootstrap or recover.
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+
+concurrency:
+  group: bootstrap-implementation-task-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  bootstrap:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (github.event.label.name == 'implementation_ready' && !github.event.issue.pull_request)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
+    steps:
+      - name: Load trusted lifecycle helper and bootstrap task
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
+          script: |
+            const fs = require('node:fs');
+            const path = require('node:path');
+            const { data: repository } = await github.rest.repos.get(context.repo);
+            if (context.ref !== `refs/heads/${repository.default_branch}`) throw new Error('Run from the default branch only.');
+            const { data } = await github.rest.repos.getContent({
+              ...context.repo, path: '.github/scripts/issue-plan-lifecycle.cjs', ref: process.env.GITHUB_WORKFLOW_SHA
+            });
+            if (data.type !== 'file' || data.encoding !== 'base64') throw new Error('Trusted helper unavailable.');
+            const file = path.join(process.env.RUNNER_TEMP, 'issue-plan-lifecycle.cjs');
+            fs.writeFileSync(file, Buffer.from(data.content, 'base64'));
+            await require(file).bootstrap({ github, context, core, login: process.env.PLAN_AUTOMATION_LOGIN });

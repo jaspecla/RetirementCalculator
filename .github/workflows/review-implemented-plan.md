@@ -29,6 +29,7 @@ safe-outputs:
       env:
         PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
       with:
+        github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}
         script: |
           const fs = require('node:fs');
           const path = require('node:path');

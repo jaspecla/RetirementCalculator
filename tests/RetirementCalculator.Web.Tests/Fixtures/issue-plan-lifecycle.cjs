@@ -519,6 +519,10 @@ const scenarios = {
     assert.ok(bootstrap.includes('bootstrap-implementation-task-${{ github.event.issue.number || inputs.issue_number }}'));
     assert.ok(implementation.includes("!startsWith(github.event.pull_request.head.ref, 'implementation/')"));
     assert.ok(implementation.includes('issue-plan-lifecycle.cjs'));
+    const reviewGuard = review.split('- name: Recheck source task and bind repair dispatch')[1]
+      .split('- name: Process Safe Outputs')[0];
+    assert.ok(reviewGuard.includes('github-token: ${{ secrets.GH_AW_GITHUB_TOKEN }}'),
+      'Review safe-output GITHUB_TOKEN has no Contents scope; helper fetch must use the configured PAT.');
     assert.ok(review.indexOf('- name: Recheck source task and bind repair dispatch') <
       review.indexOf('- name: Process Safe Outputs'));
   }

@@ -56,6 +56,8 @@ Configure:
   built-in token for lifecycle writes. The PAT-generated comments/events must
   match the configured author, and its explicit dispatch starts implementation
   without relying on the suppressed `GITHUB_TOKEN` label-event chain.
+  The review publication guard also uses this PAT to fetch its trusted helper:
+  the generated review safe-output job's built-in token has no Contents scope.
 - Preserve existing Copilot authentication, **`GH_AW_CI_TRIGGER_TOKEN`**, and
   independent review/required-check settings. The CI trigger token remains
   responsible for the implementation safe output's extra trigger commit.

@@ -4,6 +4,14 @@
 gh-aw compiler does not emit a separate agent-job timeout, so GitHub Actions'
 default job budget leaves time for setup, checkpoint upload, and cleanup.
 
+The harness also has a separate two-minute post-result inactivity watchdog.
+Queuing a comment, push, or `noop` arms it; it can terminate quiet workers and
+still report success because a safe output exists. Prepare review responses
+before repairs, but queue them only after all workers, validation, and snapshots
+finish, immediately followed by the final push or `noop`. A green run with only
+a response comment does not prove that repairs were published. Without a push,
+there is no PR `synchronize` event to trigger another independent review.
+
 ## Activation
 
 Merge the workflow source, regenerated lock file, checkpoint helper, and

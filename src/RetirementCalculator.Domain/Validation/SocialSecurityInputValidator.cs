@@ -10,6 +10,8 @@ public static class SocialSecurityInputValidator
 {
     private const int MinimumClaimAgeYears = 62;
     private const int MinimumBirthYear = 1900;
+    private const decimal MinimumInflationRatePercent = 0m;
+    private const decimal MaximumInflationRatePercent = 12m;
 
     /// <summary>
     /// Validates the supplied input. Returns an empty list when the input is valid.
@@ -33,6 +35,36 @@ public static class SocialSecurityInputValidator
                 "Enter a monthly benefit at full retirement age greater than $0."));
         }
 
+        if (input.InitialAccountBalance is not decimal initialAccountBalance || initialAccountBalance < 0m)
+        {
+            errors.Add(new ValidationError(nameof(input.InitialAccountBalance),
+                "Enter an initial account balance of $0 or more."));
+        }
+
+        if (input.MonthlySpendingInTodaysDollars is not decimal monthlySpending || monthlySpending < 0m)
+        {
+            errors.Add(new ValidationError(nameof(input.MonthlySpendingInTodaysDollars),
+                "Enter a monthly spending amount of $0 or more."));
+        }
+
+        if (input.AverageInflationRate is not decimal averageInflationRate ||
+            averageInflationRate < MinimumInflationRatePercent ||
+            averageInflationRate > MaximumInflationRatePercent)
+        {
+            errors.Add(new ValidationError(nameof(input.AverageInflationRate),
+                "Average inflation must be between 0% and 12%."));
+        }
+
+        var retirementAgeMonthsValid = IsValidMonthsComponent(input.RetirementAgeMonths);
+        var retirementAgeStructurallyValid = input.RetirementAgeYears is int retirementAgeYears &&
+            retirementAgeYears >= 0 &&
+            retirementAgeMonthsValid;
+        if (!retirementAgeStructurallyValid)
+        {
+            errors.Add(new ValidationError(nameof(input.RetirementAgeYears),
+                "Enter a retirement age with whole years and 0-11 months."));
+        }
+
         var claimAgeMonthsValid = IsValidMonthsComponent(input.ClaimAgeMonths);
         var claimAgeStructurallyValid = input.ClaimAgeYears is int claimAgeYears && claimAgeYears >= 0 && claimAgeMonthsValid;
         if (!claimAgeStructurallyValid)
@@ -51,9 +83,17 @@ public static class SocialSecurityInputValidator
 
         // Each independent, structurally-valid field is range-checked on its own so that an
         // error on one field never suppresses an otherwise-detectable error on another.
+        Age? retirementAge = retirementAgeStructurallyValid ? new Age(input.RetirementAgeYears!.Value, input.RetirementAgeMonths!.Value) : null;
         Age? claimAge = claimAgeStructurallyValid ? new Age(input.ClaimAgeYears!.Value, input.ClaimAgeMonths!.Value) : null;
         Age? planningAge = planningAgeStructurallyValid ? new Age(input.PlanningAgeYears!.Value, input.PlanningAgeMonths!.Value) : null;
         Age? fullRetirementAge = birthYearValid ? Services.FullRetirementAgeCalculator.Calculate(input.BirthYear!.Value) : null;
+
+        if (retirementAge is Age validRetirementAge && planningAge is Age validPlanningAge &&
+            validRetirementAge.TotalMonths > validPlanningAge.TotalMonths)
+        {
+            errors.Add(new ValidationError(nameof(input.PlanningAgeYears),
+                "Planning age must be later than the retirement age."));
+        }
 
         // Claim age must be at least 62 whenever the claim age components are structurally valid,
         // regardless of whether birth year, planning age, or benefit are also valid.
@@ -78,13 +118,13 @@ public static class SocialSecurityInputValidator
         // The planning-later check is evaluated whenever the claim age and planning age are both
         // structurally valid, using FRA when it is also derivable (a valid birth year). This is
         // independent of any range errors already recorded against the claim age field.
-        if (claimAge is Age claimAgeForPlanning && planningAge is Age validPlanningAge)
+        if (claimAge is Age claimAgeForPlanning && planningAge is Age planningAgeForComparison)
         {
             var latestRequiredMonths = fullRetirementAge is Age fraForPlanningCheck
                 ? Math.Max(claimAgeForPlanning.TotalMonths, fraForPlanningCheck.TotalMonths)
                 : claimAgeForPlanning.TotalMonths;
 
-            if (validPlanningAge.TotalMonths <= latestRequiredMonths)
+            if (planningAgeForComparison.TotalMonths <= latestRequiredMonths)
             {
                 errors.Add(new ValidationError(nameof(input.PlanningAgeYears),
                     "Planning age must be later than both the claim age and full retirement age."));

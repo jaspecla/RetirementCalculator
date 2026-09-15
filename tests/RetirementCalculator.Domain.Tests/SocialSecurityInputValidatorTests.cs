@@ -17,6 +17,9 @@ public sealed class SocialSecurityInputValidatorTests
 
         Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.BirthYear)));
         Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.MonthlyBenefitAtFullRetirementAge)));
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.InitialAccountBalance)));
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.MonthlySpendingInTodaysDollars)));
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.RetirementAgeYears)));
         Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.ClaimAgeYears)));
         Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.PlanningAgeYears)));
     }
@@ -28,6 +31,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 0m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 62,
             ClaimAgeMonths = 0,
             PlanningAgeYears = 90,
@@ -40,12 +47,165 @@ public sealed class SocialSecurityInputValidatorTests
     }
 
     [TestMethod]
+    public void Validate_NegativeInitialAccountBalanceAndMonthlySpending_ReturnsFieldScopedErrors()
+    {
+        var input = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = -1m,
+            MonthlySpendingInTodaysDollars = -1m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 90,
+            PlanningAgeMonths = 0,
+        };
+
+        var errors = SocialSecurityInputValidator.Validate(input, CurrentYear);
+
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.InitialAccountBalance)));
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.MonthlySpendingInTodaysDollars)));
+    }
+
+    [TestMethod]
+    public void Validate_AverageInflationOutsideSupportedEnvelope_ReturnsError()
+    {
+        var input = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            AverageInflationRate = 12.1m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 90,
+            PlanningAgeMonths = 0,
+        };
+
+        var errors = SocialSecurityInputValidator.Validate(input, CurrentYear);
+
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.AverageInflationRate)));
+    }
+
+    [TestMethod]
+    public void Validate_AverageInflationBoundaryValues_AreInclusiveAtZeroAndTwelve()
+    {
+        var inputZero = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            AverageInflationRate = 0m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 90,
+            PlanningAgeMonths = 0,
+        };
+
+        var inputTwelve = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            AverageInflationRate = 12m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 90,
+            PlanningAgeMonths = 0,
+        };
+
+        Assert.AreEqual(0, SocialSecurityInputValidator.Validate(inputZero, CurrentYear).Count);
+        Assert.AreEqual(0, SocialSecurityInputValidator.Validate(inputTwelve, CurrentYear).Count);
+    }
+
+    [TestMethod]
+    public void Validate_RetirementAgeAfterPlanningAge_ReturnsPlanningAgeError()
+    {
+        var input = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 70,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 65,
+            PlanningAgeMonths = 0,
+        };
+
+        var errors = SocialSecurityInputValidator.Validate(input, CurrentYear);
+
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.PlanningAgeYears)));
+    }
+
+    [TestMethod]
+    public void Validate_RetirementAgeEqualToPlanningAge_IsAllowed()
+    {
+        var input = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 70,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 70,
+            PlanningAgeMonths = 0,
+        };
+
+        var errors = SocialSecurityInputValidator.Validate(input, CurrentYear);
+
+        Assert.AreEqual(0, errors.Count);
+    }
+
+    [TestMethod]
+    public void Validate_RetirementAgeStructurallyInvalid_ReturnsIndependentFieldError()
+    {
+        var input = new SocialSecurityCalculatorInput
+        {
+            BirthYear = 1965,
+            MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 12,
+            ClaimAgeYears = 62,
+            ClaimAgeMonths = 0,
+            PlanningAgeYears = 90,
+            PlanningAgeMonths = 0,
+        };
+
+        var errors = SocialSecurityInputValidator.Validate(input, CurrentYear);
+
+        Assert.IsTrue(errors.Any(e => e.Field == nameof(SocialSecurityCalculatorInput.RetirementAgeYears)));
+    }
+
+    [TestMethod]
     public void Validate_ClaimAgeBelowSixtyTwo_ReturnsError()
     {
         var input = new SocialSecurityCalculatorInput
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 61,
             ClaimAgeMonths = 11,
             PlanningAgeYears = 90,
@@ -65,6 +225,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 67,
             ClaimAgeMonths = 1,
             PlanningAgeYears = 90,
@@ -84,6 +248,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 62,
             ClaimAgeMonths = 0,
             PlanningAgeYears = 67,
@@ -102,6 +270,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 64,
             ClaimAgeMonths = 6,
             PlanningAgeYears = 90,
@@ -121,6 +293,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1800,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 61,
             ClaimAgeMonths = 11,
             PlanningAgeYears = 90,
@@ -144,6 +320,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 0m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 67,
             ClaimAgeMonths = 1,
             PlanningAgeYears = 90,
@@ -167,6 +347,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1800,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 65,
             ClaimAgeMonths = 0,
             PlanningAgeYears = 65,
@@ -186,6 +370,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = null,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 61,
             ClaimAgeMonths = 11,
             PlanningAgeYears = 61,
@@ -206,6 +394,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 62,
             ClaimAgeMonths = 0,
             PlanningAgeYears = 90,
@@ -225,6 +417,10 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = 1965,
             MonthlyBenefitAtFullRetirementAge = 2000m,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 65,
+            RetirementAgeMonths = 0,
             ClaimAgeYears = 67,
             ClaimAgeMonths = 0,
             PlanningAgeYears = 90,
@@ -243,9 +439,13 @@ public sealed class SocialSecurityInputValidatorTests
         {
             BirthYear = null,
             MonthlyBenefitAtFullRetirementAge = null,
-            ClaimAgeYears = 40,
-            ClaimAgeMonths = 0,
-            PlanningAgeYears = 30,
+            InitialAccountBalance = 1000000m,
+            MonthlySpendingInTodaysDollars = 5000m,
+            RetirementAgeYears = 70,
+            RetirementAgeMonths = 0,
+            ClaimAgeYears = 61,
+            ClaimAgeMonths = 11,
+            PlanningAgeYears = 90,
             PlanningAgeMonths = 0,
         };
 

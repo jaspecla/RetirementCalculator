@@ -4,23 +4,23 @@ namespace RetirementCalculator.Domain.Services;
 
 /// <summary>
 /// Computes a side-by-side Social Security claiming comparison between a chosen claim age
-/// (62 through full retirement age) and waiting until full retirement age (FRA). All amounts
-/// are constant nominal dollars (no inflation, COLA, taxes, earnings test, or other
-/// adjustments are modeled). Claiming after FRA is out of scope.
+/// and full retirement age (FRA). The comparison uses the generated inflation path for both
+/// claim scenarios and includes annual account offsets from retirement through the planning age.
 /// </summary>
 public static class SocialSecurityBenefitCalculator
 {
-    /// <summary>
-    /// Upper bound (in whole years of age) used when searching for a break-even age so the
-    /// search terminates even when the planning age is far short of the true break-even point.
-    /// </summary>
     private const int BreakEvenSearchHorizonYears = 120;
 
-    /// <summary>
-    /// Calculates the full comparison. Caller is expected to have already validated
-    /// <paramref name="input"/> with <see cref="Validation.SocialSecurityInputValidator"/>.
-    /// </summary>
-    public static SocialSecurityComparisonResult Calculate(SocialSecurityCalculatorInput input)
+    public static SocialSecurityComparisonResult Calculate(SocialSecurityCalculatorInput input, Random? randomSource = null)
+        => CalculateCore(input, randomSource, null);
+
+    public static SocialSecurityComparisonResult Calculate(SocialSecurityCalculatorInput input, Func<decimal> randomChangeProvider)
+        => CalculateCore(input, null, randomChangeProvider);
+
+    private static SocialSecurityComparisonResult CalculateCore(
+        SocialSecurityCalculatorInput input,
+        Random? randomSource,
+        Func<decimal>? randomChangeProvider)
     {
         ArgumentNullException.ThrowIfNull(input);
 
@@ -33,89 +33,162 @@ public static class SocialSecurityBenefitCalculator
         var planningAge = new Age(
             input.PlanningAgeYears ?? throw new ArgumentException("Planning age years is required.", nameof(input)),
             input.PlanningAgeMonths ?? throw new ArgumentException("Planning age months is required.", nameof(input)));
+        var retirementAge = input.RetirementAgeYears is int retirementYears && input.RetirementAgeMonths is int retirementMonths
+            ? new Age(retirementYears, retirementMonths)
+            : claimAge;
 
         var fullRetirementAge = FullRetirementAgeCalculator.Calculate(birthYear);
-
+        var currentYear = input.CurrentYear ?? DateTime.UtcNow.Year;
+        var currentAge = new Age(currentYear - birthYear, 0);
         var monthsEarly = Math.Max(fullRetirementAge.TotalMonths - claimAge.TotalMonths, 0);
         var reductionFraction = EarlyClaimingReductionCalculator.CalculateReductionFraction(monthsEarly);
         var chosenAgeMonthlyBenefit = Math.Round(fraBenefit * (1m - reductionFraction), 2, MidpointRounding.AwayFromZero);
+        var pathLength = Math.Max(1, ((planningAge.TotalMonths - currentAge.TotalMonths) / 12) + 1);
+        var averageInflation = input.AverageInflationRate ?? 2.5m;
+        var inflationPath = randomChangeProvider is not null
+            ? InflationPathCalculator.Calculate(averageInflation, pathLength, randomChangeProvider)
+            : randomSource is null
+                ? InflationPathCalculator.Calculate(averageInflation, pathLength)
+                : InflationPathCalculator.Calculate(averageInflation, pathLength, randomSource);
+
+        var chosenAgeScenario = BuildScenario(
+            claimAge,
+            chosenAgeMonthlyBenefit,
+            planningAge,
+            inflationPath,
+            input,
+            retirementAge,
+            currentAge);
+
+        var fraScenario = BuildScenario(
+            fullRetirementAge,
+            fraBenefit,
+            planningAge,
+            inflationPath,
+            input,
+            retirementAge,
+            currentAge);
 
         var isChosenAgeSameAsFra = claimAge.TotalMonths == fullRetirementAge.TotalMonths;
-
-        var chosenAgeScenario = new ScenarioResult
-        {
-            ClaimAge = claimAge,
-            MonthlyBenefit = chosenAgeMonthlyBenefit,
-            PaymentMonthsThroughPlanningAge = PaymentMonths(claimAge, planningAge),
-            ProjectionSeries = BuildProjectionSeries(claimAge, claimAge, chosenAgeMonthlyBenefit, planningAge),
-        };
-
-        var fraScenario = new ScenarioResult
-        {
-            ClaimAge = fullRetirementAge,
-            MonthlyBenefit = fraBenefit,
-            PaymentMonthsThroughPlanningAge = PaymentMonths(fullRetirementAge, planningAge),
-            ProjectionSeries = BuildProjectionSeries(claimAge, fullRetirementAge, fraBenefit, planningAge),
-        };
-
-        Age? breakEvenAge = isChosenAgeSameAsFra
+        var breakEvenAge = isChosenAgeSameAsFra
             ? null
-            : FindBreakEvenAge(claimAge, chosenAgeMonthlyBenefit, fullRetirementAge, fraBenefit);
+            : FindBreakEvenAge(chosenAgeScenario, fraScenario);
 
-        return new SocialSecurityComparisonResult
+        var result = new SocialSecurityComparisonResult
         {
             FullRetirementAge = fullRetirementAge,
             ChosenAgeScenario = chosenAgeScenario,
             FullRetirementAgeScenario = fraScenario,
             IsChosenAgeSameAsFullRetirementAge = isChosenAgeSameAsFra,
             BreakEvenAge = breakEvenAge,
+            InflationPath = inflationPath,
+            RetirementAge = retirementAge,
         };
+
+        result.RetirementBalanceProjection = RetirementBalanceProjectionCalculator.Calculate(input, chosenAgeScenario, inflationPath);
+        return result;
     }
 
-    private static OrderedCumulativeSeries BuildProjectionSeries(Age projectionStartAge, Age claimAge, decimal monthlyBenefit, Age planningAge)
+    private static ScenarioResult BuildScenario(
+        Age claimAge,
+        decimal monthlyBenefit,
+        Age planningAge,
+        InflationPathResult inflationPath,
+        SocialSecurityCalculatorInput input,
+        Age retirementAge,
+        Age currentAge)
     {
-        var points = new List<ProjectionPoint>();
+        var annualBenefitSeries = BuildAnnualBenefitSeries(claimAge, monthlyBenefit, inflationPath, planningAge, currentAge);
+        var cumulativePoints = new List<ProjectionPoint>();
+        decimal cumulativeTotal = 0m;
 
-        for (var ageTotalMonths = projectionStartAge.TotalMonths; ageTotalMonths <= planningAge.TotalMonths; ageTotalMonths += 12)
+        foreach (var annualBenefitPoint in annualBenefitSeries)
         {
-            var age = Age.FromTotalMonths(ageTotalMonths);
-            var cumulative = CumulativeAt(ageTotalMonths, claimAge, monthlyBenefit);
-            points.Add(new ProjectionPoint(age, cumulative));
+            cumulativeTotal += annualBenefitPoint.AnnualBenefit;
+            cumulativePoints.Add(new ProjectionPoint(annualBenefitPoint.Age, cumulativeTotal));
         }
 
-        if (planningAge.TotalMonths > points[^1].Age.TotalMonths)
+        if (cumulativePoints.Count == 0)
         {
-            points.Add(new ProjectionPoint(planningAge, CumulativeAt(planningAge.TotalMonths, claimAge, monthlyBenefit)));
+            cumulativePoints.Add(new ProjectionPoint(claimAge, 0m));
         }
 
-        return new OrderedCumulativeSeries(points);
+        var scenario = new ScenarioResult
+        {
+            ClaimAge = claimAge,
+            MonthlyBenefit = monthlyBenefit,
+            PaymentMonthsThroughPlanningAge = PaymentMonths(claimAge, planningAge),
+            ProjectionSeries = new OrderedCumulativeSeries(cumulativePoints),
+            InflationPath = inflationPath,
+            AnnualBenefitSeries = annualBenefitSeries,
+        };
+
+        scenario.RetirementBalanceProjection = RetirementBalanceProjectionCalculator.Calculate(input, scenario, inflationPath);
+        return scenario;
+    }
+
+    private static OrderedAnnualBenefitSeries BuildAnnualBenefitSeries(
+        Age claimAge,
+        decimal monthlyBenefit,
+        InflationPathResult inflationPath,
+        Age planningAge,
+        Age currentAge)
+    {
+        var points = new List<AnnualBenefitProjectionPoint>();
+        var claimYearOffset = Math.Max(0, (claimAge.TotalMonths - currentAge.TotalMonths) / 12);
+        var finalYearOffset = Math.Max(0, (planningAge.TotalMonths - currentAge.TotalMonths) / 12);
+
+        for (var yearOffset = 0; yearOffset <= finalYearOffset; yearOffset++)
+        {
+            var ageAtYear = Age.FromTotalMonths(currentAge.TotalMonths + (yearOffset * 12));
+            if (ageAtYear.TotalMonths > planningAge.TotalMonths)
+            {
+                break;
+            }
+
+            if (yearOffset < claimYearOffset)
+            {
+                points.Add(new AnnualBenefitProjectionPoint(ageAtYear, 0m, 0m, yearOffset));
+                continue;
+            }
+
+            if (yearOffset == claimYearOffset)
+            {
+                var annualBenefit = monthlyBenefit * 12m;
+                points.Add(new AnnualBenefitProjectionPoint(claimAge, monthlyBenefit, annualBenefit, yearOffset));
+                continue;
+            }
+
+            var priorMonthlyBenefit = points[^1].MonthlyBenefit;
+            var rate = inflationPath.Rates.Count > yearOffset
+                ? inflationPath.Rates[yearOffset].Rate / 100m
+                : 0m;
+            var adjustedMonthlyBenefit = priorMonthlyBenefit * (1m + rate);
+            points.Add(new AnnualBenefitProjectionPoint(ageAtYear, adjustedMonthlyBenefit, adjustedMonthlyBenefit * 12m, yearOffset));
+        }
+
+        return points.Count == 0
+            ? new OrderedAnnualBenefitSeries(new[] { new AnnualBenefitProjectionPoint(claimAge, monthlyBenefit, monthlyBenefit * 12m, claimYearOffset) })
+            : new OrderedAnnualBenefitSeries(points);
     }
 
     private static int PaymentMonths(Age claimAge, Age planningAge) =>
         Math.Max(planningAge.TotalMonths - claimAge.TotalMonths, 0);
 
-    private static decimal CumulativeAt(int atTotalMonths, Age claimAge, decimal monthlyBenefit) =>
-        monthlyBenefit * Math.Max(atTotalMonths - claimAge.TotalMonths, 0);
-
-    /// <summary>
-    /// Searches month-by-month, starting at full retirement age, for the first age at which
-    /// cumulative FRA-scenario dollars catch up to and surpass the chosen-age scenario's
-    /// cumulative dollars. The search is independent of the planning age so a break-even
-    /// beyond the user's planning horizon is still found and reported. Returns null if no
-    /// break-even occurs within <see cref="BreakEvenSearchHorizonYears"/>.
-    /// </summary>
-    private static Age? FindBreakEvenAge(Age chosenAge, decimal chosenMonthlyBenefit, Age fraAge, decimal fraMonthlyBenefit)
+    private static Age? FindBreakEvenAge(ScenarioResult chosenScenario, ScenarioResult fraScenario)
     {
+        var startMonths = Math.Max(chosenScenario.ClaimAge.TotalMonths, fraScenario.ClaimAge.TotalMonths);
         var horizonTotalMonths = BreakEvenSearchHorizonYears * 12;
 
-        for (var totalMonths = fraAge.TotalMonths; totalMonths <= horizonTotalMonths; totalMonths++)
+        for (var totalMonths = startMonths; totalMonths <= horizonTotalMonths; totalMonths += 12)
         {
-            var chosenCumulative = CumulativeAt(totalMonths, chosenAge, chosenMonthlyBenefit);
-            var fraCumulative = CumulativeAt(totalMonths, fraAge, fraMonthlyBenefit);
+            var age = Age.FromTotalMonths(totalMonths);
+            var chosenCumulative = chosenScenario.GetCumulativeTotalAt(age);
+            var fraCumulative = fraScenario.GetCumulativeTotalAt(age);
 
             if (fraCumulative >= chosenCumulative)
             {
-                return Age.FromTotalMonths(totalMonths);
+                return age;
             }
         }
 

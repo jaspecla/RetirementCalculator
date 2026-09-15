@@ -39,30 +39,68 @@ public sealed class HomePageTests
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).Not.ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByText(new Regex(@"Enter a birth year between 1900 and \d{4}\."))).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByText("Enter a monthly benefit at full retirement age greater than $0.")).ToBeVisibleAsync();
-        await Assertions.Expect(_page.GetByText("Enter a claim age with whole years and 0-11 months.")).ToBeVisibleAsync();
-        await Assertions.Expect(_page.GetByText("Enter a planning age with whole years and 0-11 months.")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Enter an initial account balance of $0 or more.")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Enter a monthly spending amount of $0 or more.")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Enter a retirement age with whole years and 0-11 months.")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Average inflation must be between 0% and 12%." )).ToBeVisibleAsync();
     }
 
     [TestMethod]
-    public async Task SubmitValidForm_ShowsComparisonResults()
+    public async Task SubmitValidForm_ShowsModeledColaAndBalanceProjection()
     {
         await _page.GotoAsync(BrowserTestHost.BaseUrl);
 
         await WaitForInteractiveFormAsync();
         var calculateButton = _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" });
+
         await _page.Locator("#birthYear").FillAsync("1965");
         await _page.Locator("#fraBenefit").FillAsync("2000");
-        await _page.Locator("#claimAgeYears").FillAsync("64");
-        await _page.Locator("#claimAgeMonths").FillAsync("6");
+        await _page.Locator("#initialBalance").FillAsync("200000");
+        await _page.Locator("#monthlySpending").FillAsync("4000");
+        await _page.Locator("#averageInflationRate").FillAsync("2.5");
+        await _page.Locator("#retirementAgeYears").FillAsync("67");
+        await _page.Locator("#retirementAgeMonths").FillAsync("0");
+        await _page.Locator("#claimAgeYears").FillAsync("62");
+        await _page.Locator("#claimAgeMonths").FillAsync("0");
         await _page.Locator("#planningAgeYears").FillAsync("90");
         await _page.Locator("#planningAgeMonths").FillAsync("0");
+
         await calculateButton.ClickAsync();
         await ThrowIfBlazorFailedAsync();
 
         await Assertions.Expect(_page.GetByRole(AriaRole.Heading, new() { Name = "Results" })).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("Modeled COLA")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByText("First-year inflated spending")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.GetByRole(AriaRole.Img, new() { Name = "Retirement account balance" })).ToBeVisibleAsync();
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at chosen age");
         await Assertions.Expect(_page.GetByRole(AriaRole.Table)).ToContainTextAsync("Claim at full retirement age");
-        await Assertions.Expect(_page.Locator("svg[role='img']")).ToBeVisibleAsync();
+        await Assertions.Expect(_page.Locator("svg[role='img']")).ToHaveCountAsync(2);
+    }
+
+    [TestMethod]
+    public async Task SubmitValidForm_WithAboveFourPercentWithdrawal_ShowsWarning()
+    {
+        await _page.GotoAsync(BrowserTestHost.BaseUrl);
+
+        await WaitForInteractiveFormAsync();
+        var calculateButton = _page.GetByRole(AriaRole.Button, new() { Name = "Calculate" });
+
+        await _page.Locator("#birthYear").FillAsync("1965");
+        await _page.Locator("#fraBenefit").FillAsync("1000");
+        await _page.Locator("#initialBalance").FillAsync("60000");
+        await _page.Locator("#monthlySpending").FillAsync("3000");
+        await _page.Locator("#averageInflationRate").FillAsync("2.5");
+        await _page.Locator("#retirementAgeYears").FillAsync("67");
+        await _page.Locator("#retirementAgeMonths").FillAsync("0");
+        await _page.Locator("#claimAgeYears").FillAsync("67");
+        await _page.Locator("#claimAgeMonths").FillAsync("0");
+        await _page.Locator("#planningAgeYears").FillAsync("90");
+        await _page.Locator("#planningAgeMonths").FillAsync("0");
+
+        await calculateButton.ClickAsync();
+        await ThrowIfBlazorFailedAsync();
+
+        await Assertions.Expect(_page.GetByText(new Regex("Warning: first-year net withdrawal.*4% guideline", RegexOptions.IgnoreCase))).ToBeVisibleAsync();
     }
 
     private async Task WaitForInteractiveFormAsync()
@@ -78,7 +116,7 @@ public sealed class HomePageTests
             try
             {
                 await alerts.First.WaitForAsync(new() { State = WaitForSelectorState.Visible, Timeout = 1_000 });
-                if (await alerts.CountAsync() == 4)
+                if (await alerts.CountAsync() == 8)
                 {
                     return;
                 }

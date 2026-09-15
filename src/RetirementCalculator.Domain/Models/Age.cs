@@ -6,6 +6,11 @@ namespace RetirementCalculator.Domain.Models;
 public readonly record struct Age(int Years, int Months)
 {
     /// <summary>
+    /// The number of whole years in the age.
+    /// </summary>
+    public int TotalYears => Years;
+
+    /// <summary>
     /// The age expressed as a total number of whole months.
     /// </summary>
     public int TotalMonths => Years * 12 + Months;

@@ -7,13 +7,13 @@ using RetirementCalculator.Domain.Validation;
 namespace RetirementCalculator.Web.Components.Pages;
 
 /// <summary>
-/// Code-behind for the Social Security claiming calculator page. Contains only UI glue
-/// (binding, validation wiring, formatting); all claiming math lives in
+/// Code-behind for the retirement planning page. Contains only UI glue
+/// (binding, validation wiring, formatting); all retirement math lives in
 /// <see cref="RetirementCalculator.Domain"/> services.
 /// </summary>
 public partial class Home : ComponentBase
 {
-    private readonly SocialSecurityCalculatorInput _input = new();
+    private readonly SocialSecurityCalculatorInput _input = new() { AverageInflationRate = 2.5m };
     private IReadOnlyDictionary<string, string> _errors = new Dictionary<string, string>();
     private SocialSecurityComparisonResult? _result;
 
@@ -31,6 +31,14 @@ public partial class Home : ComponentBase
     {
         var validationErrors = SocialSecurityInputValidator.Validate(_input, DateTime.UtcNow.Year);
         _errors = validationErrors.ToDictionary(e => e.Field, e => e.Message);
-        _result = _errors.Count == 0 ? SocialSecurityBenefitCalculator.Calculate(_input) : null;
+
+        if (_errors.Count != 0)
+        {
+            _result = null;
+            return;
+        }
+
+        // Each valid submission creates a single fresh inflation path and drives all scenarios from it.
+        _result = SocialSecurityBenefitCalculator.Calculate(_input, new Random());
     }
 }

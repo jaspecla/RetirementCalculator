@@ -75,23 +75,7 @@ jobs:
           client-id: ${{ env.AZURE_CLIENT_ID }}
           tenant-id: ${{ env.AZURE_TENANT_ID }}
           subscription-id: ${{ env.AZURE_SUBSCRIPTION_ID }}
-
-      - name: Create resource group
-        run: az group create --name "$AZURE_RESOURCE_GROUP" --location "$AZURE_LOCATION" --output none
-
-      - name: Deploy Azure infrastructure
-        id: infrastructure
-        shell: bash
-        run: |
-          app_url=$(az deployment group create \
-            --name "github-${GITHUB_RUN_ID}-${GITHUB_RUN_ATTEMPT}" \
-            --resource-group "$AZURE_RESOURCE_GROUP" \
-            --template-file infra/main.bicep \
-            --parameters appName="$AZURE_APP_NAME" location="$AZURE_LOCATION" \
-            --query properties.outputs.appUrl.value \
-            --output tsv)
-          echo "app-url=$app_url" >> "$GITHUB_OUTPUT"
-
+          
       - name: Deploy application
         uses: azure/webapps-deploy@v3
         with:

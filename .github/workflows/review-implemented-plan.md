@@ -23,6 +23,22 @@ tools:
     toolsets: [default]
 safe-outputs:
   activation-comments: false
+  steps:
+    - name: Recheck source task and bind repair dispatch
+      uses: actions/github-script@v9
+      env:
+        PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
+      with:
+        script: |
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { data } = await github.rest.repos.getContent({
+            ...context.repo, path: '.github/scripts/issue-plan-lifecycle.cjs', ref: process.env.GITHUB_WORKFLOW_SHA
+          });
+          if (data.type !== 'file' || data.encoding !== 'base64') throw new Error('Trusted helper unavailable.');
+          const file = path.join(process.env.RUNNER_TEMP, 'issue-plan-lifecycle.cjs');
+          fs.writeFileSync(file, Buffer.from(data.content, 'base64'));
+          await require(file).guardDelivery({ github, context, login: process.env.PLAN_AUTOMATION_LOGIN, review: true });
   submit-pull-request-review:
     allowed-events: [COMMENT]
     target: triggering
@@ -38,6 +54,11 @@ safe-outputs:
 # Review Implemented Plan
 
 Independently review pull request #${{ github.event.pull_request.number }} at head `${{ github.event.pull_request.head.sha }}` in ${{ github.repository }}.
+
+An `implementation/issue-<number>` PR has a self-contained accepted task contract
+in its first comment, linked to its real sub-issue and accepted parent plan.
+Review only that task, not all sibling work. Publication independently rechecks
+source eligibility and binds a repair dispatch to this exact PR and head.
 
 Before reviewing:
 

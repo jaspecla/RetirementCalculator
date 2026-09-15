@@ -40,6 +40,8 @@ jobs:
       - name: Validate checkpoint and request continuation
         if: steps.download.outcome == 'success'
         uses: actions/github-script@v9
+        env:
+          PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
         with:
           script: |
             await require('./.github/scripts/implementation-checkpoint.cjs').retry({ github, context, core });

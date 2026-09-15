@@ -21,7 +21,8 @@ on:
   bots: [github-actions]
 if: >-
   github.event_name == 'workflow_dispatch' ||
-  (github.event.label.name == 'plan_accepted' && contains(github.event.pull_request.labels.*.name, 'plan_accepted'))
+  (github.event.label.name == 'plan_accepted' && contains(github.event.pull_request.labels.*.name, 'plan_accepted') &&
+   !startsWith(github.event.pull_request.head.ref, 'implementation/'))
 concurrency:
   group: implement-accepted-plan-${{ github.event.pull_request.number || github.event.inputs.pull_request_number }}
   cancel-in-progress: false
@@ -48,6 +49,13 @@ pre-steps:
         });
         if (data.type !== 'file' || data.encoding !== 'base64') throw new Error('Checkpoint helper unavailable.');
         fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'implementation-checkpoint.cjs'), Buffer.from(data.content, 'base64'));
+        const { data: lifecycle } = await github.rest.repos.getContent({
+          ...context.repo,
+          path: '.github/scripts/issue-plan-lifecycle.cjs',
+          ref: process.env.GITHUB_WORKFLOW_SHA
+        });
+        if (lifecycle.type !== 'file' || lifecycle.encoding !== 'base64') throw new Error('Lifecycle helper unavailable.');
+        fs.writeFileSync(path.join(process.env.RUNNER_TEMP, 'issue-plan-lifecycle.cjs'), Buffer.from(lifecycle.content, 'base64'));
         core.setOutput('previous-attempt', Number(process.env.GITHUB_RUN_ATTEMPT) - 1);
 pre-agent-steps:
   - name: Download previous implementation checkpoint
@@ -61,6 +69,8 @@ pre-agent-steps:
   - name: Prepare implementation checkpoint
     id: checkpoint-prepare
     uses: actions/github-script@v9
+    env:
+      PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
     with:
       script: |
         const path = require('node:path');
@@ -97,6 +107,22 @@ network:
   allowed: [defaults, dotnet, playwright, storage.googleapis.com]
 safe-outputs:
   activation-comments: false
+  steps:
+    - name: Recheck task authorization before publication
+      uses: actions/github-script@v9
+      env:
+        PLAN_AUTOMATION_LOGIN: ${{ vars.PLAN_AUTOMATION_LOGIN }}
+      with:
+        script: |
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const { data } = await github.rest.repos.getContent({
+            ...context.repo, path: '.github/scripts/issue-plan-lifecycle.cjs', ref: process.env.GITHUB_WORKFLOW_SHA
+          });
+          if (data.type !== 'file' || data.encoding !== 'base64') throw new Error('Trusted helper unavailable.');
+          const file = path.join(process.env.RUNNER_TEMP, 'issue-plan-lifecycle.cjs');
+          fs.writeFileSync(file, Buffer.from(data.content, 'base64'));
+          await require(file).guardDelivery({ github, context, login: process.env.PLAN_AUTOMATION_LOGIN });
   add-comment:
     target: ${{ github.event.pull_request.number || github.event.inputs.pull_request_number }}
     required-labels: [plan_accepted]
@@ -112,6 +138,14 @@ safe-outputs:
 # Implement Accepted Plan
 
 Implement the accepted plan for pull request #${{ github.event.pull_request.number || github.event.inputs.pull_request_number }} in ${{ github.repository }} using `workflow-patch` delivery mode.
+
+For `implementation/issue-<number>` branches the bootstrap workflow has copied the
+accepted sub-issue task contract into the first PR comment. This is a task PR,
+not a parent planning PR. Implement only that self-contained task and preserve its
+source relationship. The trusted checkpoint and publication guards recheck the
+parent accepted plan, real sub-issue relationship, `implementation_ready` opt-in,
+first-comment identity, and merged dependencies. Other independent task PRs may
+execute concurrently. Legacy accepted planning PRs retain their existing contract.
 
 Use the Issue Implementation Orchestrator's complete workflow and delegation contract. Before any edit:
 

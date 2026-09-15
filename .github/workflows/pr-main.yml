@@ -9,8 +9,12 @@ on:
       - tests/**
       - .github/workflows/pr-main.yml
       - .github/workflows/implement-accepted-plan.*
+      - .github/workflows/plan-ready-issue.*
+      - .github/workflows/review-implemented-plan.*
+      - .github/workflows/bootstrap-implementation-task.yml
       - .github/workflows/resume-implementation.yml
       - .github/scripts/implementation-checkpoint.cjs
+      - .github/scripts/issue-plan-lifecycle.cjs
 
 permissions:
   contents: read

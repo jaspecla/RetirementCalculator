@@ -61,6 +61,12 @@ async function evidence(github, repository, pullRequest) {
   const fullName = `${repository.owner}/${repository.repo}`;
   requireCondition(pull.state === 'open' && !pull.merged && pull.head.repo?.full_name === fullName &&
     pull.labels.some(label => label.name === 'plan_accepted'), 'PR must be open, same-repository, and plan_accepted.');
+  if (pull.head.ref?.startsWith('implementation/')) {
+    await require('./issue-plan-lifecycle.cjs').validatePull({
+      github, context: { repo: repository, payload: {} },
+      login: process.env.PLAN_AUTOMATION_LOGIN, pullRequest
+    });
+  }
   const { data: comments } = await github.rest.issues.listComments({ ...repository, issue_number: pullRequest, per_page: 1 });
   const plan = comments[0];
   requireCondition(plan && typeof plan.body === 'string' && plan.body.trim(), 'Accepted first-comment plan is missing.');

@@ -101,8 +101,8 @@ public sealed class ImplementationCheckpointTests
     {
         RunNode("""
             await helper.prepare(options);
-            fs.mkdirSync('.github/agents', { recursive: true });
-            fs.writeFileSync('.github/agents/test.md', 'framework configuration');
+            fs.mkdirSync('.github/workflows', { recursive: true });
+            fs.writeFileSync('.github/workflows/test.yml', 'framework configuration');
             fs.writeFileSync('.env', 'must not be captured');
             fs.writeFileSync('AGENTS.md', 'trusted instructions');
             fs.writeFileSync('tracked.txt', 'changed');
@@ -116,7 +116,7 @@ public sealed class ImplementationCheckpointTests
     }
 
     [TestMethod]
-    [DataRow(".github/agents/override.md")]
+    [DataRow(".github/workflows/override.yml")]
     [DataRow("../outside.txt")]
     public void Restore_RejectsProtectedOrEscapingPatch(string target)
     {

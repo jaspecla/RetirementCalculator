@@ -2,15 +2,14 @@
 @using RetirementCalculator.Domain.Models
 @rendermode InteractiveServer
 
-<PageTitle>Social Security Claiming Calculator</PageTitle>
+<PageTitle>Retirement planning calculator</PageTitle>
 
-<h1>Social Security Claiming Calculator</h1>
+<h1>Retirement planning calculator</h1>
 
 <p class="disclaimer" role="note">
-    This tool gives a rough <strong>estimate only</strong> based on simplified, constant-dollar
-    assumptions. It is <strong>not financial, tax, or legal advice</strong>. Always
-    <strong>verify your actual benefit estimate with the Social Security Administration</strong>
-    before making a claiming decision.
+    This tool gives a rough <strong>estimate only</strong> based on simplified assumptions and a
+    modeled inflation path. It is <strong>not financial, tax, or legal advice</strong> and should
+    be used alongside a careful review of your actual retirement plan.
 </p>
 
 <form class="ss-form" @onsubmit="Calculate">
@@ -42,6 +41,63 @@
                 <div id="fraBenefit-error" class="field-error" role="alert">@fraBenefitError</div>
             }
         </div>
+
+        <div class="ss-field">
+            <label for="initialBalance">Initial account balance ($)</label>
+            <input id="initialBalance" type="number" step="0.01" min="0" class="form-control" inputmode="decimal"
+                   aria-describedby="initialBalance-error"
+                   aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.InitialAccountBalance)) is not null)"
+                   @bind="_input.InitialAccountBalance" @bind:event="oninput" />
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.InitialAccountBalance)) is { } initialBalanceError)
+            {
+                <div id="initialBalance-error" class="field-error" role="alert">@initialBalanceError</div>
+            }
+        </div>
+
+        <div class="ss-field">
+            <label for="monthlySpending">Monthly spending in today's dollars ($)</label>
+            <input id="monthlySpending" type="number" step="0.01" min="0" class="form-control" inputmode="decimal"
+                   aria-describedby="monthlySpending-error"
+                   aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.MonthlySpendingInTodaysDollars)) is not null)"
+                   @bind="_input.MonthlySpendingInTodaysDollars" @bind:event="oninput" />
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.MonthlySpendingInTodaysDollars)) is { } monthlySpendingError)
+            {
+                <div id="monthlySpending-error" class="field-error" role="alert">@monthlySpendingError</div>
+            }
+        </div>
+
+        <div class="ss-field">
+            <label for="averageInflationRate">Average inflation rate (%)</label>
+            <input id="averageInflationRate" type="number" step="0.1" min="0" max="12" class="form-control" inputmode="decimal"
+                   aria-describedby="averageInflationRate-error"
+                   aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.AverageInflationRate)) is not null)"
+                   @bind="_input.AverageInflationRate" @bind:event="oninput" />
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.AverageInflationRate)) is { } averageInflationRateError)
+            {
+                <div id="averageInflationRate-error" class="field-error" role="alert">@averageInflationRateError</div>
+            }
+        </div>
+
+        <fieldset class="ss-field">
+            <legend>Retirement age</legend>
+            <div class="ss-age-inputs">
+                <label for="retirementAgeYears">Years
+                    <input id="retirementAgeYears" type="number" min="0" class="form-control" inputmode="numeric"
+                           aria-describedby="retirementAge-error"
+                           aria-invalid="@(ErrorFor(nameof(SocialSecurityCalculatorInput.RetirementAgeYears)) is not null)"
+                           @bind="_input.RetirementAgeYears" @bind:event="oninput" />
+                </label>
+                <label for="retirementAgeMonths">Months
+                    <input id="retirementAgeMonths" type="number" min="0" max="11" class="form-control" inputmode="numeric"
+                           aria-describedby="retirementAge-error"
+                           @bind="_input.RetirementAgeMonths" @bind:event="oninput" />
+                </label>
+            </div>
+            @if (ErrorFor(nameof(SocialSecurityCalculatorInput.RetirementAgeYears)) is { } retirementAgeError)
+            {
+                <div id="retirementAge-error" class="field-error" role="alert">@retirementAgeError</div>
+            }
+        </fieldset>
 
         <fieldset class="ss-field">
             <legend>Claim age (62 through your full retirement age)</legend>
@@ -91,9 +147,38 @@
 
 @if (_result is { } result)
 {
+    var chosenProjection = result.ChosenAgeScenario.RetirementBalanceProjection;
+    var fraProjection = result.FullRetirementAgeScenario.RetirementBalanceProjection;
+    var firstYearSpending = chosenProjection?.ProjectionSeries.FirstOrDefault().AnnualExpense ?? 0m;
+    var firstYearBenefit = chosenProjection?.ProjectionSeries.FirstOrDefault().AnnualSocialSecurityIncome ?? 0m;
+    var firstYearNetWithdrawal = chosenProjection?.ProjectionSeries.FirstOrDefault().NetWithdrawal ?? 0m;
+    var projectedDepletion = chosenProjection?.FirstDepletionAge is Age chosenDepletion ? chosenDepletion : null;
+    var projectedDepletionText = chosenProjection?.FirstDepletionAge is Age firstDepletionAge
+        ? $"Projected depletion: Age {firstDepletionAge} ({chosenProjection.FirstDepletionCalendarYear})"
+        : fraProjection?.FirstDepletionAge is Age fraDepletionAge
+            ? $"Projected depletion: Age {fraDepletionAge} ({fraProjection.FirstDepletionCalendarYear})"
+            : null;
+
     <section class="ss-results" aria-live="polite">
         <h2>Results</h2>
         <p>Your full retirement age (FRA) is <strong>@result.FullRetirementAge</strong>.</p>
+
+        <p class="modeled-cola">
+            Modeled COLA: spending and Social Security income follow a shared annual inflation path averaging
+            @FormatPercent(result.AverageInflationRate) per year.
+        </p>
+
+        @if (projectedDepletionText is { Length: > 0 } depletionNotice)
+        {
+            <p class="depletion-note">@depletionNotice</p>
+        }
+
+        @if (chosenProjection is { IsFirstYearNetWithdrawalAboveFourPercentGuideline: true })
+        {
+            <div class="withdrawal-warning" role="alert">
+                Warning: first-year net withdrawal of @FormatCurrency(firstYearNetWithdrawal) is above the 4% guideline for an initial balance of @FormatCurrency(chosenProjection.InitialAccountBalance).
+            </div>
+        }
 
         @if (result.IsChosenAgeSameAsFullRetirementAge)
         {
@@ -122,14 +207,14 @@
                                 <td>@result.FullRetirementAgeScenario.ClaimAge</td>
                             </tr>
                             <tr>
-                                <th scope="row">Monthly benefit</th>
-                                <td>@FormatCurrency(result.ChosenAgeScenario.MonthlyBenefit)</td>
-                                <td>@FormatCurrency(result.FullRetirementAgeScenario.MonthlyBenefit)</td>
+                                <th scope="row">Monthly benefit in first retirement year</th>
+                                <td>@FormatCurrency((result.ChosenAgeScenario.RetirementBalanceProjection?.ProjectionSeries.FirstOrDefault().AnnualSocialSecurityIncome ?? 0m) / 12m)</td>
+                                <td>@FormatCurrency((result.FullRetirementAgeScenario.RetirementBalanceProjection?.ProjectionSeries.FirstOrDefault().AnnualSocialSecurityIncome ?? 0m) / 12m)</td>
                             </tr>
                             <tr>
-                                <th scope="row">Annual benefit</th>
-                                <td>@FormatCurrency(result.ChosenAgeScenario.AnnualBenefit)</td>
-                                <td>@FormatCurrency(result.FullRetirementAgeScenario.AnnualBenefit)</td>
+                                <th scope="row">Annual benefit in first retirement year</th>
+                                <td>@FormatCurrency(result.ChosenAgeScenario.RetirementBalanceProjection?.ProjectionSeries.FirstOrDefault().AnnualSocialSecurityIncome ?? 0m)</td>
+                                <td>@FormatCurrency(result.FullRetirementAgeScenario.RetirementBalanceProjection?.ProjectionSeries.FirstOrDefault().AnnualSocialSecurityIncome ?? 0m)</td>
                             </tr>
                             <tr>
                                 <th scope="row">Payment months through planning age</th>
@@ -172,5 +257,35 @@
                     FraSeriesLabel="Claim at full retirement age" />
             </div>
         </div>
+
+        @if (chosenProjection is { } chosenBalance && fraProjection is { } fraBalance)
+        {
+            var firstPoint = chosenBalance.ProjectionSeries.FirstOrDefault();
+            <div class="balance-results-panel">
+                <h3>Account balance projection</h3>
+                <div class="balance-summary-grid">
+                    <div class="balance-metric">
+                        <span>First-year inflated spending</span>
+                        <strong>@FormatCurrency(firstPoint.AnnualExpense)</strong>
+                    </div>
+                    <div class="balance-metric">
+                        <span>COLA-adjusted Social Security income</span>
+                        <strong>@FormatCurrency(firstPoint.AnnualSocialSecurityIncome)</strong>
+                    </div>
+                    <div class="balance-metric">
+                        <span>Net withdrawal</span>
+                        <strong>@FormatCurrency(firstPoint.NetWithdrawal)</strong>
+                    </div>
+                </div>
+
+                <RetirementBalanceProjectionGraph
+                    SelectedSeries="chosenBalance.ProjectionSeries"
+                    FraSeries="fraBalance.ProjectionSeries"
+                    SelectedSeriesLabel="Claim at chosen age"
+                    FraSeriesLabel="Wait until FRA"
+                    GraphTitle="Retirement account balance"
+                    GraphDescription="Ages and account balances for the chosen claim age and waiting until full retirement age, with Social Security offsets include modeled COLA." />
+            </div>
+        }
     </section>
 }

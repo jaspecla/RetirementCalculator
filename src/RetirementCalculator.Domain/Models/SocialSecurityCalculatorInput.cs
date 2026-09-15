@@ -13,10 +13,42 @@ public sealed class SocialSecurityCalculatorInput
     public int? BirthYear { get; set; }
 
     /// <summary>
+    /// Current calendar year used as the projection start when no explicit override is provided.
+    /// Defaults to the runtime year to keep the projection aligned to real calendar years.
+    /// </summary>
+    public int? CurrentYear { get; set; }
+
+    /// <summary>
     /// The estimated monthly benefit payable if the worker claims exactly at full
     /// retirement age (the "PIA", primary insurance amount). Must be greater than zero.
     /// </summary>
     public decimal? MonthlyBenefitAtFullRetirementAge { get; set; }
+
+    /// <summary>
+    /// The amount available in retirement accounts at the start of retirement.
+    /// </summary>
+    public decimal? InitialAccountBalance { get; set; }
+
+    /// <summary>
+    /// Monthly spending in today's dollars during retirement.
+    /// </summary>
+    public decimal? MonthlySpendingInTodaysDollars { get; set; }
+
+    /// <summary>
+    /// Whole years portion of the planned retirement age.
+    /// </summary>
+    public int? RetirementAgeYears { get; set; }
+
+    /// <summary>
+    /// Additional months (0-11) portion of the planned retirement age.
+    /// </summary>
+    public int? RetirementAgeMonths { get; set; }
+
+    /// <summary>
+    /// Average annual inflation assumed for the spending projection, stored as a percent.
+    /// Default is 2.5% to align with a typical conservative planning assumption.
+    /// </summary>
+    public decimal? AverageInflationRate { get; set; } = 2.5m;
 
     /// <summary>
     /// Whole years portion of the age at which the worker is considering claiming.

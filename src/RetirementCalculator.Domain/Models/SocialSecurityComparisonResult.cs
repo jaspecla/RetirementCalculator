@@ -40,4 +40,12 @@ public sealed class SocialSecurityComparisonResult
     /// or when no break-even occurs within the search horizon.
     /// </summary>
     public Age? BreakEvenAge { get; init; }
+
+    public InflationPathResult? InflationPath { get; set; }
+
+    public decimal AverageInflationRate => InflationPath?.AverageInflationRate ?? 0m;
+
+    public Age? RetirementAge { get; set; }
+
+    public RetirementBalanceProjectionResult? RetirementBalanceProjection { get; set; }
 }

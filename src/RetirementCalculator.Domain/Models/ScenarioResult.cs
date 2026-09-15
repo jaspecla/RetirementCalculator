@@ -45,20 +45,66 @@ public sealed class OrderedCumulativeSeries : IReadOnlyList<ProjectionPoint>
 /// </summary>
 public sealed class ScenarioResult
 {
-    public required Age ClaimAge { get; init; }
+    public required Age ClaimAge { get; set; }
 
     /// <summary>Constant nominal monthly benefit amount for this scenario.</summary>
-    public required decimal MonthlyBenefit { get; init; }
+    public required decimal MonthlyBenefit { get; set; }
 
     /// <summary>Constant nominal annual benefit amount for this scenario (monthly * 12).</summary>
     public decimal AnnualBenefit => MonthlyBenefit * 12m;
 
     /// <summary>Number of monthly payments received between claiming and the planning age (inclusive of the claim month, exclusive after the planning age is reached).</summary>
-    public required int PaymentMonthsThroughPlanningAge { get; init; }
+    public required int PaymentMonthsThroughPlanningAge { get; set; }
 
     /// <summary>Total nominal dollars received from claiming through the planning age.</summary>
-    public decimal CumulativeTotalThroughPlanningAge => MonthlyBenefit * PaymentMonthsThroughPlanningAge;
+    public decimal CumulativeTotalThroughPlanningAge => ProjectionSeries.Count == 0 ? 0m : ProjectionSeries[^1].CumulativeTotal;
 
     /// <summary>Chronologically ordered cumulative values for this scenario.</summary>
-    public required OrderedCumulativeSeries ProjectionSeries { get; init; }
+    public required OrderedCumulativeSeries ProjectionSeries { get; set; }
+
+    public InflationPathResult? InflationPath { get; set; }
+
+    public IReadOnlyList<decimal> AnnualInflationRates => InflationPath?.AnnualRates ?? Array.Empty<decimal>();
+
+    public OrderedAnnualBenefitSeries? AnnualBenefitSeries { get; set; }
+
+    public RetirementBalanceProjectionResult? RetirementBalanceProjection { get; set; }
+
+    public decimal GetAnnualBenefitForYearOffset(int yearOffset)
+    {
+        if (AnnualBenefitSeries is not OrderedAnnualBenefitSeries benefitSeries)
+        {
+            return yearOffset == 0 ? AnnualBenefit : 0m;
+        }
+
+        var match = benefitSeries.FirstOrDefault(point => point.YearOffset == yearOffset);
+        return match.AnnualBenefit;
+    }
+
+    public decimal GetMonthlyBenefitForYearOffset(int yearOffset)
+    {
+        if (AnnualBenefitSeries is not OrderedAnnualBenefitSeries benefitSeries)
+        {
+            return yearOffset == 0 ? MonthlyBenefit : 0m;
+        }
+
+        var match = benefitSeries.FirstOrDefault(point => point.YearOffset == yearOffset);
+        return match.MonthlyBenefit;
+    }
+
+    public decimal GetCumulativeTotalAt(Age age)
+    {
+        if (ProjectionSeries.Count == 0)
+        {
+            return 0m;
+        }
+
+        var cumulative = ProjectionSeries
+            .Where(point => point.Age.TotalMonths <= age.TotalMonths)
+            .Select(point => point.CumulativeTotal)
+            .DefaultIfEmpty(0m)
+            .Last();
+
+        return cumulative;
+    }
 }

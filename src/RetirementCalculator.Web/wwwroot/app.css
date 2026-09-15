@@ -164,6 +164,61 @@ input[aria-invalid="true"] {
     padding-left: 1.25rem;
 }
 
+.modeled-cola,
+.depletion-note {
+    color: #374151;
+    background: #f8fafc;
+    border-left: 0.25rem solid #2563eb;
+    padding: 0.75rem 1rem;
+    margin: 0.5rem 0 1rem;
+    max-width: 60rem;
+}
+
+.withdrawal-warning {
+    max-width: 60rem;
+    margin: 0.75rem 0 1rem;
+    border-left: 0.25rem solid #d97706;
+    background: #fff7ed;
+    padding: 0.75rem 1rem;
+    color: #7c2d12;
+    font-weight: 600;
+}
+
+.balance-results-panel {
+    max-width: 60rem;
+    margin-top: 1.5rem;
+}
+
+.balance-results-panel h3 {
+    margin-bottom: 0.75rem;
+}
+
+.balance-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.balance-metric {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.75rem 1rem;
+    background: #f8fafc;
+    border: 1px solid #dfe7ef;
+    border-radius: 0.5rem;
+}
+
+.balance-metric span {
+    font-size: 0.8rem;
+    color: #475569;
+}
+
+.balance-metric strong {
+    font-size: 1.1rem;
+}
+
 .visually-hidden {
     position: absolute;
     width: 1px;

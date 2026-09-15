@@ -12,10 +12,22 @@ public sealed class SocialSecurityBenefitCalculatorTests
         int claimYears,
         int claimMonths,
         int planningYears,
-        int planningMonths = 0) => new()
+        int planningMonths = 0,
+        int retirementAgeYears = 67,
+        int retirementAgeMonths = 0,
+        decimal averageInflationRate = 2.5m,
+        decimal initialBalance = 100_000m,
+        decimal monthlySpending = 3_000m,
+        int? currentYear = null) => new()
         {
             BirthYear = birthYear,
+            CurrentYear = currentYear,
             MonthlyBenefitAtFullRetirementAge = fraBenefit,
+            InitialAccountBalance = initialBalance,
+            MonthlySpendingInTodaysDollars = monthlySpending,
+            RetirementAgeYears = retirementAgeYears,
+            RetirementAgeMonths = retirementAgeMonths,
+            AverageInflationRate = averageInflationRate,
             ClaimAgeYears = claimYears,
             ClaimAgeMonths = claimMonths,
             PlanningAgeYears = planningYears,
@@ -23,125 +35,164 @@ public sealed class SocialSecurityBenefitCalculatorTests
         };
 
     [TestMethod]
-    public void Calculate_ClaimAtAgeSixtyTwoWithFraSixtySeven_ReducesBenefitByThirtyPercent()
+    public void InflationPathCalculator_GeneratesAverageFirstRateAndHysteresisAndClampsToBoundaries()
     {
-        // Birth year 1965 -> FRA 67. Claiming at 62 is 60 months early -> 30% reduction.
-        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 90);
+        var changes = new[] { 1.5m, 1.5m, -1.5m, 1.5m };
+        var index = 0;
+        var path = InflationPathCalculator.Calculate(2.5m, changes.Length + 1, () => changes[index++]);
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        Assert.AreEqual(2.50m, path[0]);
+        Assert.AreEqual(4.00m, path[1]);
+        Assert.AreEqual(5.05m, path[2]);
+        Assert.AreEqual(2.785m, path[3]);
+        Assert.AreEqual(4.1995m, path[4]);
 
-        Assert.AreEqual(new Age(67, 0), result.FullRetirementAge);
-        Assert.AreEqual(1400.00m, result.ChosenAgeScenario.MonthlyBenefit); // 2000 * 0.70
-        Assert.AreEqual(2000.00m, result.FullRetirementAgeScenario.MonthlyBenefit);
-        Assert.IsFalse(result.IsChosenAgeSameAsFullRetirementAge);
+        var clamped = InflationPathCalculator.Calculate(11.8m, 4, () => 1.5m);
+        Assert.AreEqual(11.80m, clamped[0]);
+        Assert.AreEqual(12m, clamped[1]);
+        Assert.AreEqual(12m, clamped[2]);
+        Assert.AreEqual(12m, clamped[3]);
+
+        var lowClamped = InflationPathCalculator.Calculate(0.5m, 4, () => -1.5m);
+        Assert.AreEqual(0.5m, lowClamped[0]);
+        Assert.AreEqual(0m, lowClamped[1]);
+        Assert.AreEqual(0m, lowClamped[2]);
+        Assert.AreEqual(0m, lowClamped[3]);
     }
 
     [TestMethod]
-    public void Calculate_ClaimAgeEqualsFullRetirementAge_ScenariosAreIdenticalWithNoBreakEven()
+    public void Calculate_UsesSharedPathAndClaimYearBaseBenefitWithPreclaimZeros()
     {
-        var input = CreateInput(birthYear: 1960, fraBenefit: 2500m, claimYears: 67, claimMonths: 0, planningYears: 90);
+        var input = CreateInput(
+            birthYear: 1965,
+            fraBenefit: 2000m,
+            claimYears: 62,
+            claimMonths: 0,
+            planningYears: 68,
+            averageInflationRate: 2m,
+            retirementAgeYears: 67,
+            retirementAgeMonths: 0,
+            initialBalance: 250_000m,
+            monthlySpending: 4_000m,
+            currentYear: 2026);
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        var result = SocialSecurityBenefitCalculator.Calculate(input, () => 0m);
 
-        Assert.IsTrue(result.IsChosenAgeSameAsFullRetirementAge);
-        Assert.AreEqual(result.FullRetirementAgeScenario.MonthlyBenefit, result.ChosenAgeScenario.MonthlyBenefit);
-        Assert.AreEqual(0m, result.WaitingIncreaseAmount);
-        Assert.AreEqual(0m, result.WaitingIncreasePercent);
-        Assert.IsNull(result.BreakEvenAge);
+        Assert.AreSame(result.InflationPath, result.ChosenAgeScenario.InflationPath);
+        Assert.AreSame(result.InflationPath, result.FullRetirementAgeScenario.InflationPath);
+        Assert.AreEqual(0m, result.ChosenAgeScenario.AnnualBenefitSeries![0].MonthlyBenefit);
+        Assert.AreEqual(0m, result.FullRetirementAgeScenario.AnnualBenefitSeries![0].MonthlyBenefit);
+        Assert.AreEqual(1400m, result.ChosenAgeScenario.AnnualBenefitSeries[1].MonthlyBenefit);
+        Assert.AreEqual(1400m * 12m, result.ChosenAgeScenario.AnnualBenefitSeries[1].AnnualBenefit);
+        Assert.AreEqual(2000m, result.FullRetirementAgeScenario.AnnualBenefitSeries[6].MonthlyBenefit);
+        Assert.AreEqual(2000m * 12m, result.FullRetirementAgeScenario.AnnualBenefitSeries[6].AnnualBenefit);
     }
 
     [TestMethod]
-    public void Calculate_PlanningAgeShortOfBreakEven_StillReportsBreakEvenBeyondHorizon()
+    public void RetirementBalanceProjectionCalculator_CompoundsSpendingAndOffsetsSocialSecurity()
     {
-        // FRA 67, claim at 62 (30% reduction). Planning age set very close to claim age,
-        // far short of the true break-even (which occurs a couple decades later).
-        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 63);
+        var rates = InflationPathCalculator.Calculate(2m, 3, () => 0m).AnnualRates;
+        var projection = RetirementBalanceProjectionCalculator.Calculate(
+            initialAccountBalance: 50_000m,
+            monthlySpendingInTodaysDollars: 2_000m,
+            retirementAge: new Age(67, 0),
+            planningAge: new Age(69, 0),
+            annualInflationRates: rates,
+            claimAge: new Age(67, 0),
+            monthlyBenefit: 2_000m);
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
-
-        Assert.IsNotNull(result.BreakEvenAge, "Break-even should be found even when beyond the planning horizon.");
-        Assert.IsTrue(result.BreakEvenAge!.Value.TotalMonths > new Age(63, 0).TotalMonths,
-            "Break-even age should be after the (too-short) planning age.");
+        Assert.AreEqual(24_480m, projection.ProjectionSeries[0].AnnualExpense);
+        Assert.AreEqual(24_000m, projection.ProjectionSeries[0].AnnualSocialSecurityIncome);
+        Assert.AreEqual(480m, projection.ProjectionSeries[0].NetWithdrawal);
+        Assert.AreEqual(49_520m, projection.ProjectionSeries[0].EndingBalance);
+        Assert.AreEqual(480m, projection.FirstYearNetWithdrawal);
     }
 
     [TestMethod]
-    public void Calculate_BreakEvenAge_CumulativeAmountsAreConsistentAtThatAge()
+    public void RetirementBalanceProjectionCalculator_UsesSharedSpendingPathAndScenarioOffsets()
     {
-        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 90);
+        var input = CreateInput(
+            birthYear: 1965,
+            fraBenefit: 2000m,
+            claimYears: 62,
+            claimMonths: 0,
+            planningYears: 68,
+            averageInflationRate: 0m,
+            retirementAgeYears: 67,
+            retirementAgeMonths: 0,
+            initialBalance: 200_000m,
+            monthlySpending: 4_000m,
+            currentYear: 2026);
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        var result = SocialSecurityBenefitCalculator.Calculate(input, () => 0m);
+        var chosenProjection = result.ChosenAgeScenario.RetirementBalanceProjection!;
+        var fraProjection = result.FullRetirementAgeScenario.RetirementBalanceProjection!;
 
-        Assert.IsNotNull(result.BreakEvenAge);
-        var breakEvenTotalMonths = result.BreakEvenAge!.Value.TotalMonths;
-
-        var chosenMonthsPaid = Math.Max(breakEvenTotalMonths - result.ChosenAgeScenario.ClaimAge.TotalMonths, 0);
-        var fraMonthsPaid = Math.Max(breakEvenTotalMonths - result.FullRetirementAgeScenario.ClaimAge.TotalMonths, 0);
-
-        var chosenCumulativeAtBreakEven = result.ChosenAgeScenario.MonthlyBenefit * chosenMonthsPaid;
-        var fraCumulativeAtBreakEven = result.FullRetirementAgeScenario.MonthlyBenefit * fraMonthsPaid;
-
-        Assert.IsTrue(fraCumulativeAtBreakEven >= chosenCumulativeAtBreakEven,
-            "At the reported break-even age, the FRA scenario's cumulative total should have caught up.");
-
-        // One month earlier, the FRA scenario should not yet have caught up (true first break-even).
-        var oneMonthEarlier = breakEvenTotalMonths - 1;
-        var chosenMonthsPaidEarlier = Math.Max(oneMonthEarlier - result.ChosenAgeScenario.ClaimAge.TotalMonths, 0);
-        var fraMonthsPaidEarlier = Math.Max(oneMonthEarlier - result.FullRetirementAgeScenario.ClaimAge.TotalMonths, 0);
-        var chosenCumulativeEarlier = result.ChosenAgeScenario.MonthlyBenefit * chosenMonthsPaidEarlier;
-        var fraCumulativeEarlier = result.FullRetirementAgeScenario.MonthlyBenefit * fraMonthsPaidEarlier;
-
-        Assert.IsTrue(fraCumulativeEarlier < chosenCumulativeEarlier,
-            "The month before break-even, the FRA scenario should still be behind.");
+        Assert.AreEqual(chosenProjection.ProjectionSeries[0].AnnualExpense, fraProjection.ProjectionSeries[0].AnnualExpense);
+        Assert.AreEqual(result.ChosenAgeScenario.GetAnnualBenefitForYearOffset(6), chosenProjection.ProjectionSeries[0].AnnualSocialSecurityIncome);
+        Assert.AreEqual(result.FullRetirementAgeScenario.GetAnnualBenefitForYearOffset(6), fraProjection.ProjectionSeries[0].AnnualSocialSecurityIncome);
+        Assert.AreNotEqual(chosenProjection.ProjectionSeries[0].AnnualSocialSecurityIncome, fraProjection.ProjectionSeries[0].AnnualSocialSecurityIncome);
     }
 
     [TestMethod]
-    public void Calculate_PaymentMonthsAndCumulativeTotals_AreInternallyConsistent()
+    public void RetirementBalanceProjectionCalculator_UsesFourPercentBoundaryWithoutWarningOnEquality()
     {
-        var input = CreateInput(birthYear: 1960, fraBenefit: 1800m, claimYears: 64, claimMonths: 0, planningYears: 85);
+        var zeroRatePath = InflationPathCalculator.Calculate(0m, 2, () => 0m).AnnualRates;
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        var equalProjection = RetirementBalanceProjectionCalculator.Calculate(
+            initialAccountBalance: 60_000m,
+            monthlySpendingInTodaysDollars: 200m,
+            retirementAge: new Age(67, 0),
+            planningAge: new Age(68, 0),
+            annualInflationRates: zeroRatePath,
+            claimAge: new Age(67, 0),
+            monthlyBenefit: 0m);
 
-        Assert.AreEqual(
-            result.ChosenAgeScenario.MonthlyBenefit * result.ChosenAgeScenario.PaymentMonthsThroughPlanningAge,
-            result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge);
-        Assert.AreEqual(
-            result.FullRetirementAgeScenario.MonthlyBenefit * result.FullRetirementAgeScenario.PaymentMonthsThroughPlanningAge,
-            result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge);
-        Assert.AreEqual(result.ChosenAgeScenario.MonthlyBenefit * 12m, result.ChosenAgeScenario.AnnualBenefit);
+        var aboveProjection = RetirementBalanceProjectionCalculator.Calculate(
+            initialAccountBalance: 60_000m,
+            monthlySpendingInTodaysDollars: 201m,
+            retirementAge: new Age(67, 0),
+            planningAge: new Age(68, 0),
+            annualInflationRates: zeroRatePath,
+            claimAge: new Age(67, 0),
+            monthlyBenefit: 0m);
+
+        var zeroBalanceProjection = RetirementBalanceProjectionCalculator.Calculate(
+            initialAccountBalance: 0m,
+            monthlySpendingInTodaysDollars: 100m,
+            retirementAge: new Age(67, 0),
+            planningAge: new Age(68, 0),
+            annualInflationRates: zeroRatePath,
+            claimAge: new Age(67, 0),
+            monthlyBenefit: 0m);
+
+        Assert.AreEqual(2_400m, equalProjection.FirstYearNetWithdrawal);
+        Assert.IsFalse(equalProjection.IsFirstYearNetWithdrawalAboveFourPercentGuideline);
+        Assert.IsTrue(aboveProjection.IsFirstYearNetWithdrawalAboveFourPercentGuideline);
+        Assert.IsTrue(zeroBalanceProjection.IsFirstYearNetWithdrawalAboveFourPercentGuideline);
     }
 
     [TestMethod]
-    public void Calculate_WaitingIncrease_IsPositiveWhenClaimingEarly()
+    public void RetirementBalanceProjectionCalculator_RecordsExactDepletionAndCalendarYear()
     {
-        var input = CreateInput(birthYear: 1962, fraBenefit: 2200m, claimYears: 63, claimMonths: 6, planningYears: 90);
+        var input = CreateInput(
+            birthYear: 1965,
+            fraBenefit: 2000m,
+            claimYears: 62,
+            claimMonths: 0,
+            planningYears: 68,
+            averageInflationRate: 0m,
+            retirementAgeYears: 67,
+            retirementAgeMonths: 0,
+            initialBalance: 5_000m,
+            monthlySpending: 2_000m,
+            currentYear: 2026);
 
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
+        var result = SocialSecurityBenefitCalculator.Calculate(input, () => 0m);
+        var projection = result.ChosenAgeScenario.RetirementBalanceProjection!;
 
-        Assert.IsTrue(result.WaitingIncreaseAmount > 0m);
-        Assert.IsTrue(result.WaitingIncreasePercent > 0m);
-    }
-
-    [TestMethod]
-    public void Calculate_ProjectionSeries_AreOrderedAndEndpointConsistent()
-    {
-        var input = CreateInput(birthYear: 1965, fraBenefit: 2000m, claimYears: 62, claimMonths: 0, planningYears: 69, planningMonths: 3);
-
-        var result = SocialSecurityBenefitCalculator.Calculate(input);
-
-        var chosenProjection = result.ChosenAgeScenario.ProjectionSeries;
-        var fraProjection = result.FullRetirementAgeScenario.ProjectionSeries;
-
-        Assert.IsTrue(chosenProjection.Count > 1);
-        Assert.IsTrue(chosenProjection.Zip(chosenProjection.Skip(1), (current, next) => current.Age.TotalMonths < next.Age.TotalMonths).All(x => x));
-        Assert.AreEqual(result.ChosenAgeScenario.CumulativeTotalThroughPlanningAge, chosenProjection[^1].CumulativeTotal);
-        Assert.AreEqual(result.FullRetirementAgeScenario.CumulativeTotalThroughPlanningAge, fraProjection[^1].CumulativeTotal);
-
-        foreach (var point in fraProjection.Where(point => point.Age.TotalMonths < result.FullRetirementAge.TotalMonths))
-        {
-            Assert.AreEqual(0m, point.CumulativeTotal);
-        }
-
-        Assert.AreEqual(new Age(69, 3), chosenProjection[^1].Age);
-        Assert.AreEqual(new Age(69, 3), fraProjection[^1].Age);
+        Assert.AreEqual(new Age(67, 0), projection.FirstDepletionAge);
+        Assert.AreEqual(2032, projection.FirstDepletionCalendarYear);
+        Assert.AreEqual(0m, projection.ProjectionSeries[0].EndingBalance);
     }
 }

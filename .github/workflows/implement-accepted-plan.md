@@ -36,7 +36,7 @@ checkout:
 pre-steps:
   - name: Load trusted checkpoint helper
     id: checkpoint-tools
-    uses: actions/github-script@v9
+    uses: actions/github-script@v9.0.0
     with:
       script: |
         const fs = require('node:fs');
@@ -52,7 +52,7 @@ pre-steps:
 pre-agent-steps:
   - name: Download previous implementation checkpoint
     if: github.run_attempt != '1'
-    uses: actions/download-artifact@v8
+    uses: actions/download-artifact@v8.0.2
     with:
       name: implementation-checkpoint-${{ steps.checkpoint-tools.outputs.previous-attempt }}
       path: ${{ runner.temp }}/implementation-restore
@@ -60,7 +60,7 @@ pre-agent-steps:
       run-id: ${{ github.run_id }}
   - name: Prepare implementation checkpoint
     id: checkpoint-prepare
-    uses: actions/github-script@v9
+    uses: actions/github-script@v9.0.0
     with:
       script: |
         const path = require('node:path');
@@ -69,14 +69,14 @@ post-steps:
   - name: Package implementation checkpoint
     id: checkpoint-save
     if: always() && steps.checkpoint-prepare.outputs.ready == 'true'
-    uses: actions/github-script@v9
+    uses: actions/github-script@v9.0.0
     with:
       script: |
         const path = require('node:path');
         require(path.join(process.env.RUNNER_TEMP, 'implementation-checkpoint.cjs')).save({ core });
   - name: Upload implementation checkpoint
     if: always() && steps.checkpoint-save.outcome == 'success'
-    uses: actions/upload-artifact@v7
+    uses: actions/upload-artifact@v7.0.2
     with:
       name: implementation-checkpoint-${{ github.run_attempt }}
       path: ${{ runner.temp }}/implementation-upload/checkpoint.json

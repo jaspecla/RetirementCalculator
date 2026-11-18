@@ -11,7 +11,7 @@ permissions:
   contents: read
   pull-requests: read
   copilot-requests: write
-model: gpt-5
+model: gpt-6
 engine:
   id: copilot
 tools:

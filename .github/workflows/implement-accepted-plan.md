@@ -82,7 +82,7 @@ post-steps:
       path: ${{ runner.temp }}/implementation-upload/checkpoint.json
       if-no-files-found: error
       retention-days: 7
-model: gpt-5
+model: gpt-6
 engine:
   id: copilot
   agent: issue-implementation-orchestrator

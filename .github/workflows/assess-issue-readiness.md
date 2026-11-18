@@ -13,7 +13,7 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
-model: gpt-5.6-sol
+model: gpt-5
 engine:
   id: copilot
 tools:

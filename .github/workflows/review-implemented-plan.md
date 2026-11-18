@@ -11,7 +11,7 @@ permissions:
   issues: read
   pull-requests: read
   copilot-requests: write
-model: claude-opus-5
+model: sonnet
 engine:
   id: copilot
 models:
